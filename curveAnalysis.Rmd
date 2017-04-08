@@ -1,0 +1,73 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(readr)
+CSV_for_ConditionsStandardConditions_YeastStrainWildType_Plate_24423 <- read_csv("~/repo/CurveAnalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainWildType_Plate_24423.csv")
+current.data<-CSV_for_ConditionsStandardConditions_YeastStrainWildType_Plate_24423
+current.data[grep("X",names(current.data))]<-NULL
+current.data
+log.od<-log(t(as.matrix(current.data[,-1])))
+matplot(log.od,type="l")
+dim(log.od)
+time<-as.numeric(colnames(current.data[-1]))
+rates<-apply(log.od,MARGIN = 2,FUN=function(x)diff(x)/diff(time))
+matplot(rates,type="l")
+plot(rowMeans(rates),type="l")
+abline(h=0)
+current.data<-as.data.frame(current.data)
+colnames(current.data[,-1])<-1:130
+#reshape data for lmer
+tmp2<-reshape(data=current.data,direction = "long",varying=colnames(current.data[,-1]),v.names ="OD" ,timevar = "Time",times =time)
+#Wrapper for Mixed effects model with variable break point
+foo <- function(bp)
+{
+  mod <- lmer(LogOD ~ b1(Time, bp) + b2(Time, bp) + (b1(Time, bp) + b2(Time, bp) | Well), data = tmp2)
+  deviance(mod,REML=FALSE)
+}
+
+
+N <- 40 # number of sampled points
+K <- 3  # number of knots
+
+piece.formula <- function(var.name, knots) {
+  formula.sign <- rep(" - ", length(knots))
+  formula.sign[knots < 0] <- " + "
+  paste(var.name, "+",
+        paste("I(pmax(", var.name, formula.sign, abs(knots), ", 0))",
+              collapse = " + ", sep=""))
+}
+library(lme4)
+library(bcp)
+plot(bcp(log.od))
+knots<-time[c(20,50,100)]
+#model <- lmer(formula=formula(paste("log(OD) ~",paste( piece.formula("Time", knots),"+1|Well_Name"))),data = tmp2 )
+ rand.slope<-paste("(1+",paste(piece.formula("Time", knots),")|Well_Name"))
+model <- lmer(formula=formula(paste("log(OD) ~1+",rand.slope)),data = tmp2 )
+```
+
+No with stan
+
+```{r}
+library(rstan)
+library(coda)
+library(ggmcmc)
+time[1]=0
+OD<-as.matrix(current.data[,-1])
+M <- ceiling(length(time)^(2/3))
+N <- 16
+T<- length(time)
+D<-bernstein.derivative.operator(M)
+model <- stan_model(file = "BernsteinFit.stan")
+timeN<-normalize.interval(time)
+X<-bernstein.matrix(M,timeN)
+
+fit<-vb(model, output_samples=1000, seed=123)
+tmp<-rstan::extract(fit,"A_coef")
+tmp<-tmp$A_coef
+matplot(t(matrix(colMeans(tmp),N,T)),type="l")
+
+```
+
