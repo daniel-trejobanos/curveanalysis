@@ -65,9 +65,8 @@ timeN<-normalize.interval(time)
 X<-bernstein.matrix(M,timeN)
 
 fit<-vb(model, output_samples=1000, seed=123)
-tmp<-rstan::extract(fit,"A_coef")
-tmp<-tmp$A_coef
-matplot(t(matrix(colMeans(tmp),N,T)),type="l")
-
+tmp<-rstan::extract(fit,"rate")
+tmp<-tmp$rate
+plot(colMeans(tmp),type="l")
 ```
 
