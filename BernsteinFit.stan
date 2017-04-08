@@ -16,28 +16,24 @@ transformed data{
 }
 parameters {
   matrix[M,N] A_coef;
-  row_vector<lower=0,upper=1>[T] rate;
-  real<lower=0> sigma_a;
+  #row_vector<lower=0,upper=1>[T] rate;
+  real<lower=0> sigma_a[N];
   real<lower=0> sigma_o;
-  real<lower=0> sigma_tau;
 }
 transformed parameters{
- matrix[N,T] tau;
- for(i in 1:N)
-  for(j in 1:T)
-   tau[i,j]=A_coef[,i]'*D*X[,j]-rate[j];
+  matrix[N,M] rate;
+   rate = A_coef'*D;
 }
 
 model {
   
-  sigma_a~cauchy(0,5);
+  
   sigma_o~cauchy(0,5);
-  sigma_tau~cauchy(0,5);
  for (n in 1:N){
-   A_coef[,n]~normal(0,sigma_a);
+   sigma_a[n]~cauchy(0,5);
+   A_coef[,n]~normal(0,sigma_a[n]);
     for (t in 1:T) {
        logOD[n,t] ~ normal(A_coef[,n]'*to_vector(X[,t]),sigma_o);
-       tau[n,t]~normal(0,sigma_tau);
     }
      
  }
