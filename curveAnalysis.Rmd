@@ -58,18 +58,21 @@ time[1]=0
 OD<-as.matrix(current.data[,-1])
 M <- ceiling(length(time)^(2/3))
 #M<-10
-N <- 2
+N <- 16
 OD<-as.matrix(current.data[1:N,-1])
 T<- length(time)
 D<-bernstein.derivative.operator(M)
 model <- stan_model(file = "BernsteinFit.stan")
 timeN<--1*normalize.interval(time)
 X<-bernstein.matrix(M,timeN)
-
+lambda=1
 fit<-vb(model, output_samples=1000, seed=123)
 #fit<-stan("BernsteinFit.stan")
 tmp<-rstan::extract(fit,"rate")
 tmp<-tmp$rate
+
+#t2<-t(matrix(colMeans(tmp),N,T))
+#matplot(t2,type="l")
 
 t2<-t(matrix(colMeans(tmp),N,T))
 matplot(t2,type="l")
@@ -77,5 +80,12 @@ matplot(t2,type="l")
 tmp<-rstan::extract(fit,"sigma_o")
 tmp<-tmp$sigma_o
 hist(tmp)
+tmp<-rstan::extract(fit,"OD_pred")
+tmp<-tmp$OD_pred
+
+t2<-t(matrix(colMeans(tmp),N,T))
+matplot(t2,type="l")
+
+
 ```
 
