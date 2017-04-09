@@ -18,23 +18,27 @@ parameters {
   matrix[M,N] A_coef;
   #row_vector<lower=0,upper=1>[T] rate;
   real<lower=0> sigma_a[N];
-  real<lower=0> sigma_o;
+  real<lower=0,upper=1> sigma_o[N];
 }
 transformed parameters{
-  matrix[N,M] rate;
-   rate = A_coef'*D;
+  
 }
 
 model {
   
   
-  sigma_o~cauchy(0,5);
  for (n in 1:N){
-   sigma_a[n]~cauchy(0,5);
+   sigma_a[n]~cauchy(0,0.5);
+   sigma_o[n]~cauchy(0,0.5);
    A_coef[,n]~normal(0,sigma_a[n]);
     for (t in 1:T) {
-       logOD[n,t] ~ normal(A_coef[,n]'*to_vector(X[,t]),sigma_o);
+       logOD[n,t] ~ normal(A_coef[,n]'*to_vector(X[,t]),sigma_o[n]);
     }
      
  }
+}
+
+generated quantities{
+  matrix[N,T] rate;
+   rate = A_coef'*(D*X);
 }
