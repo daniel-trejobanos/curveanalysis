@@ -49,10 +49,11 @@ model {
 
 generated quantities{
    matrix[N,T] OD_pred;
+   matrix[N,T] rate_pred;
     for (n in 1:N)
    for (t in 1:T) {
       
        OD_pred[n,t] = normal_rng(A_coef[,n]'*to_vector(X[,t]),sigma_o[n]);
-       
+       rate_pred[n,t]= (A_coef[,n]'*(D*to_vector(X[,t])))/(A_coef[,n]'*to_vector(X[,t]));
     }
 }

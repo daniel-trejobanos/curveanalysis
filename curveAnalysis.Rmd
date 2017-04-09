@@ -86,6 +86,12 @@ tmp<-tmp$OD_pred
 t2<-t(matrix(colMeans(tmp),N,T))
 matplot(t2,type="l")
 
+tmp<-rstan::extract(fit,"rate_pred")
+tmp<-tmp$rate_pred
+
+t2<-t(matrix(colMeans(tmp),N,T))
+matplot(t2,type="l")
+
 
 ```
 
