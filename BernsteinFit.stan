@@ -24,6 +24,7 @@ parameters {
  real<lower=0> lambda;
  simplex[K] pi;
  real<lower=0,upper=1> mu[K];
+ #real<lower=0> sigma_mu[K];
 }
 transformed parameters{
    
@@ -39,8 +40,10 @@ model {
    A_coef[,n]~normal(0,sigma_a[n]);
    
    for(k in 1:K){
-      rate[n,k]~ normal(mu[k],0.01);  
-      ps[k] = log(pi[k]) + exponential_log(trace((A_coef[,n]'*(D*X)-rate[n,k] * (A_coef[,n]'*X))'*(A_coef[,n]'*(D*X)-rate[n,k] * (A_coef[,n]'*X))), lambda);
+      #sigma_mu[k] ~ cauchy(0,0.1);
+      rate[n,k]~ normal(mu[k],0.01);
+      
+      ps[k] = log(pi[k]) + exponential_log(trace((A_coef[,n]'*(D)-rate[n,k] * (A_coef[,n]'))'*(A_coef[,n]'*(D)-rate[n,k] * (A_coef[,n]'))), lambda);
    }
    for (t in 1:T) {
       
