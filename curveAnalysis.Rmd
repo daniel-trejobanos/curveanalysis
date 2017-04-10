@@ -63,12 +63,12 @@ K=2
 OD<-as.matrix(current.data[1:N,-1])
 T<- length(time)
 D<-bernstein.derivative.operator(M)
-#model <- stan_model(file = "BernsteinFit.stan")
+model <- stan_model(file = "BernsteinFit.stan")
 timeN<--1*normalize.interval(time)
 X<-bernstein.matrix(M,timeN)
 lambda=1
-#fit<-vb(model, output_samples=1000, seed=123)
-fit<-stan("BernsteinFit.stan")
+fit<-vb(model, output_samples=1000, seed=123)
+#fit<-stan("BernsteinFit.stan")
 save(list="fit",file="fit.RData")
 tmp<-rstan::extract(fit,"rate")
 tmp<-tmp$rate
