@@ -3,6 +3,7 @@ data {
   int<lower=0> N; #number of series
   int<lower=0> M; #number of basis functions 
   int<lower=0> T; #number of timepoints
+  int<lower=1> K; 
   #real lambda;  
   matrix[N,T] OD; #optical density data
    matrix[M,T] X; #basis functions
@@ -19,31 +20,34 @@ parameters {
   #row_vector<lower=0,upper=1>[T] rate;
   real<lower=0> sigma_a[N];
   real<lower=0,upper=1> sigma_o[N];
-   matrix<lower=0,upper=1>[N,T] rate;
+   matrix<lower=0,upper=1>[N,K] rate;
  real<lower=0> lambda;
+ simplex[K] pi;
+ real<lower=0,upper=1> mu[K];
 }
 transformed parameters{
-   real<lower=0> tau[N];
-   for(i in 1:N)
-    tau[i]=trace((A_coef[,i]'*(D*X)-rate[i,] .* (A_coef[,i]'*X))'*(A_coef[,i]'*(D*X)-rate[i,] .* (A_coef[,i]'*X)));
-   #tau= trace((A_coef'*(D*X)-rate .* (A_coef'*X))'*(A_coef'*(D*X)-rate .* (A_coef'*X)));
-    
+   
 }
 
 model {
-  
+ real ps[K];
+
  lambda~cauchy(0,5);
  for (n in 1:N){
    sigma_a[n]~cauchy(0,0.1);
   sigma_o[n]~ cauchy(0,0.1);
-   tau[n]~exponential(lambda);
    A_coef[,n]~normal(0,sigma_a[n]);
-    for (t in 1:T) {
+   
+   for(k in 1:K){
+      rate[n,k]~ normal(mu[k],0.01);  
+      ps[k] = log(pi[k]) + exponential_log(trace((A_coef[,n]'*(D*X)-rate[n,k] * (A_coef[,n]'*X))'*(A_coef[,n]'*(D*X)-rate[n,k] * (A_coef[,n]'*X))), lambda);
+   }
+   for (t in 1:T) {
       
        OD[n,t] ~ normal(A_coef[,n]'*to_vector(X[,t]),sigma_o[n]);
        
     }
-     
+    target+=log_sum_exp(ps);
  }
 }
 

@@ -59,6 +59,7 @@ OD<-as.matrix(current.data[,-1])
 M <- ceiling(length(time)^(2/3))
 #M<-10
 N <- 16
+K=2
 OD<-as.matrix(current.data[1:N,-1])
 T<- length(time)
 D<-bernstein.derivative.operator(M)
@@ -74,9 +75,9 @@ tmp<-tmp$rate
 #t2<-t(matrix(colMeans(tmp),N,T))
 #matplot(t2,type="l")
 
-t2<-t(matrix(colMeans(tmp),N,T))
+t2<-t(matrix(colMeans(tmp),N,K))
 matplot(t2,type="l")
-
+hist(t2[1,])
 tmp<-rstan::extract(fit,"sigma_o")
 tmp<-tmp$sigma_o
 hist(tmp)
@@ -92,6 +93,9 @@ tmp<-tmp$rate_pred
 t2<-t(matrix(colMeans(tmp),N,T))
 matplot(t2,type="l")
 
-
+mu<-rstan::extract(fit,"mu")
+mu<-mu$mu
+hist(mu[,1])
+hist(mu[,2])
 ```
 
