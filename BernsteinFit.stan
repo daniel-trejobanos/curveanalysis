@@ -37,9 +37,10 @@ transformed parameters{
    vector[M+1] log_p_l;
    log_p_e[1]=0;
    log_p_l[1]=0;
+
    for(n in 1:N){
     for(i in 1:M){
-       log_p_e[i+1] = log_p_e[i] + exponential_log(((A_coef[,n]'*D[,i])- rate[n,1] * A_coef[i,n])^2, LAMBDA);
+       log_p_e[i+1] = log_p_e[i] + exponential_log(((A_coef[,n]'*D[,i])- rate[n,1] * A_coef[i,n])^2, LAMBDA)+normal_lpdf(0|(A_coef[,n]'*D[,i]),0.1);
       log_p_l[i+1] = log_p_l[i] + exponential_log(((A_coef[,n]'*D[,i])- rate[n,2] * A_coef[i,n])^2, LAMBDA);
    }
     log_p[,n]=(rep_vector(-log(M)+log_p_l[M+1],M)+ head(log_p_e,M) - head(log_p_l,M));    
@@ -51,12 +52,12 @@ model {
 
  #lambda~cauchy(0,LAMBDA);
  for (n in 1:N){
-   sigma_a[n]~cauchy(0,0.1);
-  sigma_o[n]~ cauchy(0,0.1);
+   sigma_a[n]~normal(0,0.1);
+  sigma_o[n]~ normal(0,0.1);
    A_coef[,n]~normal(0,sigma_a[n]);
    
    for(k in 1:2){
-      sigma_mu[k] ~ cauchy(0,SIGMA_MU);
+      sigma_mu[k] ~ normal(0,SIGMA_MU);
       rate[n,k]~ normal(MU[k],sigma_mu[k]);
       #rate[n,k]~ normal(mu[k],0.01);
       
