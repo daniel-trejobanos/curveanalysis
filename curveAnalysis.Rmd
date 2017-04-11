@@ -61,13 +61,25 @@ K=2
 OD<-as.matrix(current.data[1:N,-1])
 T<- length(time)
 D<-bernstein.derivative.operator(M)
-model <- stan_model(file = "BernsteinFit.stan")
+
 timeN<--1*normalize.interval(time)
 X<-bernstein.matrix(M,timeN)
-lambda=1
-fit<-vb(model, output_samples=1000, seed=123)
 
 ```
+
+```{r}
+LAMBDA=1
+SIGMA_MU=0.1
+MU=c(0.2,0.06)
+#MU=c(0,0)
+model <- stan_model(file = "BernsteinFit.stan")
+fit<-vb(model, output_samples=1000, seed=123)
+plotfit(fit)
+#save(list="fit",file="fitADVI.RData")
+matplot(t(OD),type="l")
+
+```
+
 
 
 ```{r}
@@ -78,37 +90,46 @@ rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 fit<-stan("BernsteinFit.stan",chains=6 )
 save(list="fit",file="fit.RData")
+plotfit<-function(fit){
 tmp<-rstan::extract(fit,"rate")
-tmp<-tmp$rate
+rate<-tmp$rate
 
 #t2<-t(matrix(colMeans(tmp),N,T))
 #matplot(t2,type="l")
 
-t2<-(matrix(colMeans(tmp),N,2))
-boxplot(t2)
-hist(t2[1,])
-tmp<-rstan::extract(fit,"sigma_o")
-tmp<-tmp$sigma_o
-hist(tmp)
-tmp<-rstan::extract(fit,"OD_pred")
-tmp<-tmp$OD_pred
+rate<-(matrix(colMeans(rate),N,2))
+boxplot(rate,main="mean rates")
 
-t2<-t(matrix(colMeans(tmp),N,T))
-matplot(t2,type="l")
+tmp<-rstan::extract(fit,"sigma_o")
+sigma_o<-tmp$sigma_o
+hist(sigma_o)
+tmp<-rstan::extract(fit,"OD_pred")
+ODp<-tmp$OD_pred
+
+ODp<-t(matrix(colMeans(ODp),N,T))
+matplot(x = seq(0,1,length.out = T),ODp,type="l")
 
 tmp<-rstan::extract(fit,"rate_pred")
 tmp<-tmp$rate_pred
 
 t2<-t(matrix(colMeans(tmp),N,T))
-matplot(t2,type="l")
+matplot(t2,type="l",main="rate_pred")
 
-mu<-rstan::extract(fit,"mu")
-mu<-mu$mu
-hist(mu[,1])
-hist(mu[,2])
-s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
-S <- ggs(s)
-ggmcmc(S)
+#mu<-rstan::extract(fit,"mu")
+#mu<-mu$mu
+#hist(mu[,1])
+#hist(mu[,2])
+tau<-rstan::extract(fit,"tau")
+tau<-tau$tau
+hist(tau[,5])
+lambda<- rstan::extract(fit,"lambda")
+lambda <- lambda$lambda
+hist(lambda)
+}
+#plot(fit, pars=c("tau"))
+#s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
+#S <- ggs(s)
+#ggmcmc(S)
 
 ```
 
