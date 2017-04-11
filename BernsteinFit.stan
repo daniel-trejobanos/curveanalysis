@@ -27,21 +27,20 @@ parameters {
  #real<lower=0> sigma_mu[K];
 }
 transformed parameters{
-   matrix[N,T] log_p;
-   real ratec;
-   real loss;
-   for(n in 1:N)
-   for(t in 1:T)
-    log_p[n,t]=-log(T);
-   
-   for(n in 1:N)
-   for(tau in 1:T){
-     for(t in 1:T){
-       ratec= t < tau ? rate[n,1]: rate[n,2];
-       loss=(A_coef[,n]'*(D*X[,t])- ratec * (A_coef[,n]'*X[,t]))^2;
-       log_p[n,tau] = log_p[n,tau] + exponential_log(loss, lambda); 
-     }
+   matrix[M,N] log_p;
+   {
+   vector[M+1] log_p_e;
+   vector[M+1] log_p_l;
+   log_p_e[1]=0;
+   log_p_l[1]=0;
+   for(n in 1:N){
+    for(i in 1:M){
+       log_p_e[i+1] = log_p_e[i] + exponential_log(((A_coef[,n]'*D[,i])- rate[n,1] * A_coef[i,n])^2, lambda);
+      log_p_l[i+1] = log_p_l[i] + exponential_log(((A_coef[,n]'*D[,i])- rate[n,2] * A_coef[i,n])^2, lambda);
    }
+    log_p[,n]=(rep_vector(-log(M)+log_p_l[M+1],M)+ head(log_p_e,M) - head(log_p_l,M));    
+   }    
+  }
 }
 
 model {
@@ -58,12 +57,7 @@ model {
       
       
    }
-   for (t in 1:T) {
-      
-       OD[n,t] ~ normal(A_coef[,n]'*to_vector(X[,t]),sigma_o[n]);
-       
-    }
-    target+=log_sum_exp(log_p);
+    target+=log_sum_exp(log_p[,n]) + normal_lpdf(OD[n,]|A_coef[,n]'*X,sigma_o[n]);
  }
 }
 

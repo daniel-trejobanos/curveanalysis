@@ -51,9 +51,7 @@ model <- lmer(formula=formula(paste("log(OD) ~1+",rand.slope)),data = tmp2 )
 No with stan
 
 ```{r}
-library(rstan)
-library(coda)
-library(ggmcmc)
+
 time[1]=0
 OD<-as.matrix(current.data[,-1])
 M <- ceiling(length(time)^(2/3))
@@ -68,7 +66,17 @@ timeN<--1*normalize.interval(time)
 X<-bernstein.matrix(M,timeN)
 lambda=1
 fit<-vb(model, output_samples=1000, seed=123)
-#fit<-stan("BernsteinFit.stan")
+
+```
+
+
+```{r}
+library(rstan)
+library(coda)
+library(ggmcmc)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+fit<-stan("BernsteinFit.stan",chains=6 )
 save(list="fit",file="fit.RData")
 tmp<-rstan::extract(fit,"rate")
 tmp<-tmp$rate
@@ -76,8 +84,8 @@ tmp<-tmp$rate
 #t2<-t(matrix(colMeans(tmp),N,T))
 #matplot(t2,type="l")
 
-t2<-t(matrix(colMeans(tmp),N,K))
-matplot(t2,type="l")
+t2<-(matrix(colMeans(tmp),N,2))
+boxplot(t2)
 hist(t2[1,])
 tmp<-rstan::extract(fit,"sigma_o")
 tmp<-tmp$sigma_o
@@ -101,5 +109,6 @@ hist(mu[,2])
 s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
 S <- ggs(s)
 ggmcmc(S)
+
 ```
 
