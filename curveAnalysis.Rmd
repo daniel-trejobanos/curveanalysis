@@ -70,22 +70,23 @@ X<-bernstein.matrix(M,timeN)
 ```{r}
 LAMBDA=1
 SIGMA_MU=0.1
+V=0.01
 #MU=c(0.2,0.06)
 MU=c(0,0)
 model <- stan_model(file = "BernsteinFit.stan")
 fit<-vb(model, output_samples=1000, seed=123)
-plotfit(fit)
-#save(list="fit",file="fitADVI.RData")
-matplot(t(OD),type="l")
-tmp<-rstan::extract(fit,"rate")
-rate<-tmp$rate
+#plotfit(fit)
+save(list="fit",file="fitADVI.RData")
+#matplot(t(OD),type="l")
+#tmp<-rstan::extract(fit,"rate")
+#rate<-tmp$rate
 
 #t2<-t(matrix(colMeans(tmp),N,T))
 #matplot(t2,type="l")
 
-rate<-(matrix(colMeans(rate),N,2))
-boxplot(rate,main="mean rates")
-plot(colMeans(rate[,1,1]))
+#rate<-(matrix(colMeans(rate),N,2))
+#boxplot(rate,main="mean rates")
+#plot(colMeans(rate[,1,1]))
 ```
 
 
@@ -98,6 +99,10 @@ rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 fit<-stan("BernsteinFit.stan",chains=6 )
 save(list="fit",file="fit.RData")
+s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
+S <- ggs(s)
+
+ggmcmc(S,plot = c("density","geweke"))
 plotfit<-function(fit){
 tmp<-rstan::extract(fit,"rate")
 rate<-tmp$rate
@@ -135,9 +140,7 @@ lambda <- lambda$lambda
 hist(lambda)
 }
 #plot(fit, pars=c("tau"))
-#s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
-#S <- ggs(s)
-#ggmcmc(S)
+
 
 ```
 

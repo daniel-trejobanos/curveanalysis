@@ -11,6 +11,7 @@ data {
   real<lower=0,upper=1> MU[2];
   real LAMBDA;
   real SIGMA_MU;
+  real V;
 }
 transformed data{
   matrix[N,T] logOD;
@@ -23,7 +24,7 @@ parameters {
   #row_vector<lower=0,upper=1>[T] rate;
   real<lower=0> sigma_a[N];
   real<lower=0,upper=1> sigma_o[N];
-   matrix<lower=0,upper=1>[N,2] rate;
+   matrix<lower=0,upper=1>[N,3] rate;
  real<lower=0> lambda;
  #simplex[K] pi;
  #real<lower=0,upper=1> mu[2];
@@ -31,21 +32,25 @@ parameters {
  
 }
 transformed parameters{
-   matrix[M,N] log_p;
-   {
-   vector[M+1] log_p_e;
-   vector[M+1] log_p_l;
-   log_p_e[1]=0;
-   log_p_l[1]=0;
-
-   for(n in 1:N){
-    for(i in 1:M){
-       log_p_e[i+1] = log_p_e[i] + exponential_log(((A_coef[,n]'*D[,i])- rate[n,1] * A_coef[i,n])^2, LAMBDA)+normal_lpdf(0|(A_coef[,n]'*D[,i]),0.1);
-      log_p_l[i+1] = log_p_l[i] + exponential_log(((A_coef[,n]'*D[,i])- rate[n,2] * A_coef[i,n])^2, LAMBDA);
-   }
-    log_p[,n]=(rep_vector(-log(M)+log_p_l[M+1],M)+ head(log_p_e,M) - head(log_p_l,M));    
-   }    
-  }
+    matrix[M,M] lp[N]; 
+  
+    
+    for(n in 1:N){
+    lp[n] = rep_matrix(-log(M),M,M); 
+    for (s1 in 1:M) 
+      for (s2 in 1:M) 
+      for (t in 1:M){
+        if(t<s1){
+          lp[n,s1,s2] <-lp[n,s1,s2] + exponential_log(((A_coef[,n]'*D[,t])- rate[n,1] * A_coef[t,n])^2, LAMBDA)+normal_lpdf(0|(A_coef[,n]'*D[,t]),V);
+        }else{
+          if(t<s2){
+            lp[n,s1,s2] <-lp[n,s1,s2] + exponential_log(((A_coef[,n]'*D[,t])- rate[n,2] * A_coef[t,n])^2, LAMBDA);
+          }else{
+            lp[n,s1,s2] <-lp[n,s1,s2] +exponential_log(((A_coef[,n]'*D[,t])- rate[n,3] * A_coef[t,n])^2, LAMBDA);
+          }
+        }
+      } 
+    }
 }
 
 model {
@@ -63,15 +68,15 @@ model {
       
       
    }
-    target+=log_sum_exp(log_p[,n]) + normal_lpdf(OD[n,]|A_coef[,n]'*X,sigma_o[n]);
+    target+=log_sum_exp(to_vector(lp[n])) + normal_lpdf(OD[n,]|A_coef[,n]'*X,sigma_o[n]);
  }
 }
 
 generated quantities{
    matrix[N,T] OD_pred;
    matrix[N,T] rate_pred;
-   int<lower=1,upper=M> tau[N];
-    simplex[M] sp;
+   #int<lower=1,upper=M> tau[N];
+    #simplex[M] sp;
     for (n in 1:N){
    for (t in 1:T) {
       
@@ -79,7 +84,7 @@ generated quantities{
        rate_pred[n,t]= (A_coef[,n]'*(D*to_vector(X[,t])))/(A_coef[,n]'*to_vector(X[,t]));
     }
     
-    sp = softmax(log_p[,n]);
-    tau[n] = categorical_rng(sp);
+   # sp = softmax(lp[,n]);
+    #tau[n] = categorical_rng(sp);
   }
 }
