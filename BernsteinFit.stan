@@ -3,6 +3,7 @@ data {
   int<lower=0> N; #number of series
   int<lower=0> M; #number of coefficients
   int<lower=0> T; #number of timepoints
+   real MAXT;
   matrix<lower=0,upper=1>[M,T] X;
   matrix[M,M] D;
   real timeN[T];
@@ -21,7 +22,8 @@ transformed data{
   for(i in 1:N)
     for(j in 1:T)
       #FPOD[i,j] = log(OD[i,j])-log(OD[i,1]);
-      FPOD[i,j] = log(OD[i,j])-MIN;
+      #FPOD[i,j] = log(OD[i,j])-MIN;
+      FPOD[i,j] = OD[i,j];
 }
 parameters {
  
@@ -35,24 +37,24 @@ parameters {
 }
 transformed parameters{
     matrix[M-2,M-2] lp[N]; 
-    matrix[M-1,N] DA_coef;
-    
+    matrix[M,N] DA_coef;
+    DA_coef=(1/MAXT)*(A_coef'*D)';
     for(n in 1:N){
-      for(i in 2:M)
-        DA_coef[i-1,n]= A_coef[i,n]-A_coef[i-1,n];
+     # for(i in 2:M)
+      #  DA_coef[i-1,n]= A_coef[i,n]-A_coef[i-1,n];
     lp[n] = rep_matrix(-log(M-2),M-2,M-2); 
     for (s1 in 2:M-1) 
       for (s2 in 2:M-1) 
       for (t in 2:M-1){
         if(t<s1){
-          lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + normal_lpdf(DA_coef[t-1,n]|rate[n,1],LAMBDA);
+          lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + normal_lpdf(DA_coef[t,n]|rate[n,1]*A_coef[t,n],LAMBDA);
           #exponential_lpdf((DA_coef[t-1,n]-rate[n,1])^2|LAMBDA);
         }else{
           if(t<s2){
-            lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + normal_lpdf(DA_coef[t-1,n]|rate[n,2],LAMBDA);
+            lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + normal_lpdf(DA_coef[t,n]|rate[n,2]*A_coef[t,n],LAMBDA);
             #exponential_lpdf((DA_coef[t-1,n]-rate[n,2])^2|LAMBDA);
           }else{
-            lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + normal_lpdf(DA_coef[t-1,n]|rate[n,3],LAMBDA);
+            lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + normal_lpdf(DA_coef[t,n]|rate[n,3]*A_coef[t,n],LAMBDA);
             #exponential_lpdf((DA_coef[t-1,n]-rate[n,3])^2|LAMBDA);
           }
         }
@@ -61,10 +63,10 @@ transformed parameters{
 }
 
 model { 
-  LAMBDA ~  cauchy(0,10);
-  sigma_mu ~ cauchy(0,SIGMA_MU);
-  sigma_o~ cauchy(0,0.1);
-   sigma_a ~ cauchy(0,0.1);
+  LAMBDA ~  normal(0,10);
+  sigma_mu ~ normal(0,SIGMA_MU);
+  sigma_o~ normal(0,0.1);
+   sigma_a ~ normal(0,0.1);
   rate[,1]~ normal(MU[1],sigma_mu);
    rate[,2]~ normal(MU[2],sigma_mu);
    rate[,3]~ normal(MU[3],sigma_mu);
@@ -100,7 +102,7 @@ generated quantities{
       #  rate2_pred[n,t] = normal_rng(rate[n,2]*timeN[t],sigma_o[n]);
       #  rate3_pred[n,t] =normal_rng(rate[n,3]*timeN[t],sigma_o[n]);
         OD_pred[n,t] = normal_rng(A_coef[,n]'*X[,t],sigma_o[n]);
-        DOD_pred[n,t] = normal_rng(A_coef[,n]'*D*X[,t],sigma_o[n]);
+        DOD_pred[n,t] = normal_rng(DA_coef[,n]'*X[,t],sigma_o[n]);
       }
   }
 }

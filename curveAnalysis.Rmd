@@ -68,16 +68,19 @@ OD.old<-OD
 ```
 
 ```{r}
-N=16
-M=26
+N=2
+M=10
+MAXT=max(time)
 X<-bernstein.matrix(M,timeN)
 D<-bernstein.derivative.operator(M)
 OD<-OD.old[1:N,]
-MIN=min(log(OD))
-MAX=max(log(OD))
-LAMBDA=10
+#MIN=min(log(OD))
+#MAX=max(log(OD))
+MIN=0
+MAX=max(OD)
+#LAMBDA=20
 #SIGMA_MU=0.01
-SIGMA_MU=1
+SIGMA_MU=0.1
 V=0.01
 #MU=c(0.2,0.06)
 MU=c(0,0,0)
@@ -111,7 +114,18 @@ ODp<-tmp$OD_pred
 
 ODp<-t(matrix(colMeans(ODp),N,T))
 matplot(ODp,type="l")
-matplot(t(log(OD))-MIN,type="l")
+tmp<-rstan::extract(fit,"DOD_pred")
+DODp<-tmp$DOD_pred
+
+DODp<-t(matrix(colMeans(DODp),N,T))
+matplot(DODp,type="l")
+
+#lines(diff(ODp[,2]/diff(timeN)))
+
+#plot(diff(ODp[,2]/(65*diff(timeN))))
+#plot(diff(OD[2,])/diff(time))
+
+#matplot(t(log(OD))-MIN,type="l")
 
 
 #rate<-(matrix(colMeans(rate),N,2))
