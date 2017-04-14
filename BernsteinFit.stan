@@ -45,15 +45,15 @@ transformed parameters{
       for (s2 in 2:M-1) 
       for (t in 2:M-1){
         if(t<s1){
-          lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + exponential_lpdf((DA_coef[t-1,n]-rate[n,1])^2|LAMBDA);
-          #;
+          lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + normal_lpdf(DA_coef[t-1,n]|rate[n,1],LAMBDA);
+          #exponential_lpdf((DA_coef[t-1,n]-rate[n,1])^2|LAMBDA);
         }else{
           if(t<s2){
-            lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] +exponential_lpdf((DA_coef[t-1,n]-rate[n,2])^2|LAMBDA);
-            #
+            lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + normal_lpdf(DA_coef[t-1,n]|rate[n,2],LAMBDA);
+            #exponential_lpdf((DA_coef[t-1,n]-rate[n,2])^2|LAMBDA);
           }else{
-            lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] +exponential_lpdf((DA_coef[t-1,n]-rate[n,3])^2|LAMBDA);
-            #
+            lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + normal_lpdf(DA_coef[t-1,n]|rate[n,3],LAMBDA);
+            #exponential_lpdf((DA_coef[t-1,n]-rate[n,3])^2|LAMBDA);
           }
         }
       } 
