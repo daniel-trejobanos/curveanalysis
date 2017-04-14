@@ -52,37 +52,67 @@ No with stan
 
 ```{r}
 
-time[1]=0
-OD<-as.matrix(current.data[,-1])
+#time[1]=0
+#OD<-as.matrix(current.data[,-1])
 M <- ceiling(length(time)^(2/3))
 #M<-10
 N <- 16
 K=2
-OD<-as.matrix(current.data[1:N,-1])
+#OD<-as.matrix(current.data[1:N,-1])
 T<- length(time)
-D<-bernstein.derivative.operator(M)
 
-timeN<--1*normalize.interval(time)
-X<-bernstein.matrix(M,timeN)
 
+#timeN<--1*normalize.interval(time)
+
+OD.old<-OD
 ```
 
 ```{r}
-LAMBDA=1
-SIGMA_MU=0.1
+N=16
+M=26
+X<-bernstein.matrix(M,timeN)
+D<-bernstein.derivative.operator(M)
+OD<-OD.old[1:N,]
+MIN=min(log(OD))
+MAX=max(log(OD))
+LAMBDA=10
+#SIGMA_MU=0.01
+SIGMA_MU=1
 V=0.01
 #MU=c(0.2,0.06)
-MU=c(0,0)
+MU=c(0,0,0)
+#timeN <- as.numeric(colnames(OD.old))
+#timeN[1] <- 0
+#timeN<--1*normalize.interval(timeN)
+T <- length(timeN)
 model <- stan_model(file = "BernsteinFit.stan")
 fit<-vb(model, output_samples=1000, seed=123)
+s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
+
+S <- ggs(s)
+
+ggs_caterpillar(S,family = "rate")
+ggs_caterpillar(S,family = "sigma")
+ggs_caterpillar(S,family = "DA_coef")
+ggs_caterpillar(S,family = "lp")
+#ggs_caterpillar(S,family="intercept")
+
 #plotfit(fit)
 save(list="fit",file="fitADVI.RData")
 #matplot(t(OD),type="l")
 #tmp<-rstan::extract(fit,"rate")
 #rate<-tmp$rate
 
-#t2<-t(matrix(colMeans(tmp),N,T))
-#matplot(t2,type="l")
+#t2<-t(matrix(colMeans(rate),N,3))
+#boxplot(t(t2),type="l")
+
+tmp<-rstan::extract(fit,"OD_pred")
+ODp<-tmp$OD_pred
+
+ODp<-t(matrix(colMeans(ODp),N,T))
+matplot(ODp,type="l")
+matplot(t(log(OD))-MIN,type="l")
+
 
 #rate<-(matrix(colMeans(rate),N,2))
 #boxplot(rate,main="mean rates")
@@ -100,9 +130,46 @@ options(mc.cores = parallel::detectCores())
 fit<-stan("BernsteinFit.stan",chains=6 )
 save(list="fit",file="fit.RData")
 s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
+
 S <- ggs(s)
 
-ggmcmc(S,plot = c("density","geweke"))
+ggs_caterpillar(S,family = "rate")
+ggs_caterpillar(S,family = "sigma")
+ggs_caterpillar(S,family = "DA_coef")
+
+#ggs_caterpillar(S,family="intercept")
+
+#plotfit(fit)
+#save(list="fit",file="fitADVI.RData")
+#matplot(t(OD),type="l")
+#tmp<-rstan::extract(fit,"rate")
+#rate<-tmp$rate
+
+#t2<-t(matrix(colMeans(rate),N,3))
+#boxplot(t(t2),type="l")
+
+tmp<-rstan::extract(fit,"OD_pred")
+ODp<-tmp$OD_pred
+
+ODp<-t(matrix(colMeans(ODp),N,T))
+
+matplot(x = seq(0,1,length.out = T),ODp,type="l")
+
+
+tmp<-rstan::extract(fit,"DOD_pred")
+DODp<-tmp$DOD_pred
+
+DODp<-t(matrix(colMeans(DODp),N,T))
+
+matplot(x = seq(0,1,length.out = T),DODp,type="l")
+
+
+
+
+
+
+
+
 plotfit<-function(fit){
 tmp<-rstan::extract(fit,"rate")
 rate<-tmp$rate
@@ -141,6 +208,6 @@ hist(lambda)
 }
 #plot(fit, pars=c("tau"))
 
-
+ggmcmc(fit)
 ```
 

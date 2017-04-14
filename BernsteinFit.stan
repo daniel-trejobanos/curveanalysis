@@ -1,90 +1,106 @@
 ##stan model for bernstein polynomials
 data {
   int<lower=0> N; #number of series
-  int<lower=0> M; #number of basis functions 
+  int<lower=0> M; #number of coefficients
   int<lower=0> T; #number of timepoints
-  #int<lower=1> K; 
-  #real lambda;  
-  matrix[N,T] OD; #optical density data
-   matrix[M,T] X; #basis functions
+  matrix<lower=0,upper=1>[M,T] X;
   matrix[M,M] D;
-  real<lower=0,upper=1> MU[2];
-  real LAMBDA;
+  real timeN[T];
+  matrix[N,T] OD; #optical density data
+   real MU[3];
+  real MIN;
+  real MAX;
   real SIGMA_MU;
+   
   real V;
 }
 transformed data{
-  matrix[N,T] logOD;
+  real<lower=0> MI;
+  matrix[N,T] FPOD;
+   MI=M;
   for(i in 1:N)
     for(j in 1:T)
-      logOD[i,j] = log(OD[i,j]);
+      #FPOD[i,j] = log(OD[i,j])-log(OD[i,1]);
+      FPOD[i,j] = log(OD[i,j])-MIN;
 }
 parameters {
-  matrix<lower=0,upper=1>[M,N] A_coef;
-  #row_vector<lower=0,upper=1>[T] rate;
+ 
+  matrix<lower=0,upper=MAX-MIN>[M,N] A_coef;
   real<lower=0> sigma_a[N];
   real<lower=0,upper=1> sigma_o[N];
-   matrix<lower=0,upper=1>[N,3] rate;
- real<lower=0> lambda;
- #simplex[K] pi;
- #real<lower=0,upper=1> mu[2];
- real<lower=0> sigma_mu[2];
- 
+#  real intercept[N];
+  matrix<lower=0>[N,3] rate;
+ real<lower=0> sigma_mu;
+ real<lower=0> LAMBDA;
 }
 transformed parameters{
-    matrix[M,M] lp[N]; 
-  
+    matrix[M-2,M-2] lp[N]; 
+    matrix[M-1,N] DA_coef;
     
     for(n in 1:N){
-    lp[n] = rep_matrix(-log(M),M,M); 
-    for (s1 in 1:M) 
-      for (s2 in 1:M) 
-      for (t in 1:M){
+      for(i in 2:M)
+        DA_coef[i-1,n]= A_coef[i,n]-A_coef[i-1,n];
+    lp[n] = rep_matrix(-log(M-2),M-2,M-2); 
+    for (s1 in 2:M-1) 
+      for (s2 in 2:M-1) 
+      for (t in 2:M-1){
         if(t<s1){
-          lp[n,s1,s2] <-lp[n,s1,s2] + exponential_log(((A_coef[,n]'*D[,t])- rate[n,1] * A_coef[t,n])^2, LAMBDA)+normal_lpdf(0|(A_coef[,n]'*D[,t]),V);
+          lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] + exponential_lpdf((DA_coef[t-1,n]-rate[n,1])^2|LAMBDA);
+          #;
         }else{
           if(t<s2){
-            lp[n,s1,s2] <-lp[n,s1,s2] + exponential_log(((A_coef[,n]'*D[,t])- rate[n,2] * A_coef[t,n])^2, LAMBDA);
+            lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] +exponential_lpdf((DA_coef[t-1,n]-rate[n,2])^2|LAMBDA);
+            #
           }else{
-            lp[n,s1,s2] <-lp[n,s1,s2] +exponential_log(((A_coef[,n]'*D[,t])- rate[n,3] * A_coef[t,n])^2, LAMBDA);
+            lp[n,s1-1,s2-1] = lp[n,s1-1,s2-1] +exponential_lpdf((DA_coef[t-1,n]-rate[n,3])^2|LAMBDA);
+            #
           }
         }
       } 
     }
 }
 
-model {
-
- #lambda~cauchy(0,LAMBDA);
+model { 
+  LAMBDA ~  cauchy(0,10);
+  sigma_mu ~ cauchy(0,SIGMA_MU);
+  sigma_o~ cauchy(0,0.1);
+   sigma_a ~ cauchy(0,0.1);
+  rate[,1]~ normal(MU[1],sigma_mu);
+   rate[,2]~ normal(MU[2],sigma_mu);
+   rate[,3]~ normal(MU[3],sigma_mu);
+   #rate[,1]~ cauchy(0,SIGMA_MU);
+   #rate[,2]~ cauchy(0,SIGMA_MU);
+   #rate[,3]~ cauchy(0,SIGMA_MU);
  for (n in 1:N){
-   sigma_a[n]~normal(0,0.1);
-  sigma_o[n]~ normal(0,0.1);
-   A_coef[,n]~normal(0,sigma_a[n]);
-   
-   for(k in 1:2){
-      sigma_mu[k] ~ normal(0,SIGMA_MU);
-      rate[n,k]~ normal(MU[k],sigma_mu[k]);
-      #rate[n,k]~ normal(mu[k],0.01);
-      
-      
-   }
-    target+=log_sum_exp(to_vector(lp[n])) + normal_lpdf(OD[n,]|A_coef[,n]'*X,sigma_o[n]);
+   A_coef[,n]  ~ normal(0,sigma_a[n]);
  }
+ 
+ for(n in 1:N){
+    target+=log_sum_exp(to_vector(lp[n]))+normal_lpdf(FPOD[n,]|A_coef[,n]'*X,sigma_o[n]);
+ }
+ 
 }
 
 generated quantities{
-   matrix[N,T] OD_pred;
-   matrix[N,T] rate_pred;
+   
+  # matrix[N,T] rate1_pred;
+   # matrix[N,T] rate2_pred;
+    # matrix[N,T] rate3_pred;
+     matrix[N,T] OD_pred;
+     matrix[N,T] DOD_pred;
+     
+     
    #int<lower=1,upper=M> tau[N];
     #simplex[M] sp;
     for (n in 1:N){
-   for (t in 1:T) {
       
-       OD_pred[n,t] = normal_rng(A_coef[,n]'*to_vector(X[,t]),sigma_o[n]);
-       rate_pred[n,t]= (A_coef[,n]'*(D*to_vector(X[,t])))/(A_coef[,n]'*to_vector(X[,t]));
-    }
-    
-   # sp = softmax(lp[,n]);
-    #tau[n] = categorical_rng(sp);
+      for (t in 1:T) {
+      
+     #    rate1_pred[n,t] = normal_rng(rate[n,1]*timeN[t],sigma_o[n]);
+      #  rate2_pred[n,t] = normal_rng(rate[n,2]*timeN[t],sigma_o[n]);
+      #  rate3_pred[n,t] =normal_rng(rate[n,3]*timeN[t],sigma_o[n]);
+        OD_pred[n,t] = normal_rng(A_coef[,n]'*X[,t],sigma_o[n]);
+        DOD_pred[n,t] = normal_rng(A_coef[,n]'*D*X[,t],sigma_o[n]);
+      }
   }
 }
