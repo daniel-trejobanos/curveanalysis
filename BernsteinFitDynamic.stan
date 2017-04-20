@@ -44,30 +44,39 @@ transformed parameters{
     matrix[P,P] lp[N]; 
     matrix[M,N] DA_coef;
     matrix[N,T] loss;
+    
+    
    # matrix<lower=0>[M,N] A_coef;
-    for(n in 1:N){
-    #  A_coef[,n] = cumulative_sum(s*jump[,n]);
-      lp[n] = rep_matrix(-log(P),P,P);
-    }
+    
     DA_coef=(1/MAXT)*(A_coef'*D)';
     loss = (DA_coef'*X)./(A_coef'*X);
-    for(n in 1:N){
-    for (s1 in 1:P) 
-      for (s2 in 1:P) 
-      for (t in 1:T){
-        if(t<prior[s1]){
-          lp[n,s1,s2] = lp[n,s1,s2] + normal_lpdf(loss[n,t]|rate[n,1],lambda);
-          #exponential_lpdf((DA_coef[t-1,n]-rate[n,1])^2|LAMBDA);
-        }else{
-          if(t<prior[s2]){
-            lp[n,s1,s2] = lp[n,s1,s2] + normal_lpdf(loss[n,t]|rate[n,2],lambda);
-            #exponential_lpdf((DA_coef[t-1,n]-rate[n,2])^2|LAMBDA);
-          }else{
-            lp[n,s1,s2] = lp[n,s1,s2] + normal_lpdf(loss[n,t]|rate[n,3],lambda);
-            #exponential_lpdf((DA_coef[t-1,n]-rate[n,3])^2|LAMBDA);
-          }
+     
+    
+    {
+      vector[T+1] lpS_12;
+      vector[T+1] lpS_21;
+      vector[T+1] lpS_32;
+      vector[P] log_pROW;
+      for(n in 1:N){
+        lp[n] = rep_matrix(-log(P),P,P);
+        lpS_12[1]=0;
+        lpS_21[1]=0;
+        lpS_32[1]=0;
+        for (t in 1:T){
+            
+            lpS_12[t+1]=lpS_12[t]+normal_lpdf(loss[n,t]|rate[n,1],lambda);
+            lpS_21[t+1]=lpS_21[t]+normal_lpdf(loss[n,t]|rate[n,2],lambda);
+            lpS_32[t+1]=lpS_32[t]+normal_lpdf(loss[n,t]|rate[n,3],lambda);
         }
-      } 
+        
+        for(s1 in 1:P){
+          log_pROW[s1] =  lpS_21[T + 1] + lpS_12[prior[s1]] - lpS_21[prior[s1]];
+        }
+        for(s1 in 1:P)
+         for(s2 in 2:P){
+          lp[n,s1,s2]=  lp[n,s1,s2] + lpS_32[T+1] + log_pROW[s1]  - lpS_32[prior[s2]];
+        }
+      }
     }
 }
 
