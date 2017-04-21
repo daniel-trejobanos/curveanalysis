@@ -75,31 +75,38 @@ library(bcp)
 set.seed(123)
 p<- bcp(t(OD))
 plot(p)
-SIGMA_A<-1
-prior<-which(p$posterior.prob>0.5)
+
+prior<-which(p$posterior.prob>0)
+prior<-c(10:26,35:41)
+#prior<-c(1:26,prior[3:length(prior)])
 P<-length(prior)
 N=16
 M=100
 MAXT=max(time)
-X<-bernstein.matrix(M,timeN)
+X<-bernstein.matrix(M,time,a=time[1],b=time[length(time)])
 D<-bernstein.derivative.operator(M)
 OD<-OD.old[1:N,]
+#OD<-t(scale(t(OD)))
 #MIN=min(log(OD))
 #MAX=max(log(OD))
 MIN=0
 MAX=max(OD)+0.1
 #LAMBDA=20
 #SIGMA_MU=0.01
-SIGMA_MU=1
+SIGMA_MU=0.1
 K0=0.01
 #MU=c(0.2,0.06)
 MU=c(0,0,0)
-LAMBDA=0.1
+LAMBDA=1
+SIGMA_A=0.5
 #timeN <- as.numeric(colnames(OD.old))
 #timeN[1] <- 0
 #timeN<--1*normalize.interval(timeN)
 T <- length(timeN)
 model <- stan_model(file = "BernsteinFitDynamic.stan")
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+#fit<-stan("BernsteinFitDynamic.stan",chains=6 )
 fit<-vb(model, output_samples=1000, seed=123)
 #fitrstan::optimizing()
 s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
@@ -108,6 +115,10 @@ S <- ggs(s)
 
 ggs_caterpillar(S,family = "rate")
 ggs_caterpillar(S,family = "sigma")
+ggs_caterpillar(S,family="MU")
+ggs_caterpillar(S,family="lambda")
+#gs_caterpillar(S,family="intercept")
+#ggs_geweke(S)
 #ggs_caterpillar(S,family = "DA_coef")
 #ggs_caterpillar(S,family = "^A_coef")
 #ggs_caterpillar(S,family = "lp")
@@ -133,7 +144,11 @@ tmp<-rstan::extract(fit,"DOD_pred")
 DODp<-tmp$DOD_pred
 #plot(colMeans(DODp)/colMeans(ODp))
 DODp<-t(matrix(colMeans(DODp),N,T))
-matplot(DODp/ODp,type="l")
+matplot((1/MAXT)*DODp/ODp,type="l",main="loss posterior")
+tmp<-rstan::extract(fit,"loss")
+lossp<-tmp$loss
+lossp<-t(matrix(colMeans(lossp),N,T))
+matplot(lossp,type="l",title="loss")
 abline(h=0)
 #lines(diff(ODp[,2]/diff(timeN)))
 

@@ -1,10 +1,12 @@
-bernstein.basis <- function(m,t){
+bernstein.basis <- function(m,t,a=NULL,b=NULL){
+  a<-ifelse(is.null(a),0,a)
+  b<-ifelse( is.null(b),1,b)
   k=1:m
-  choose(m-1,k-1)*(t^(k-1))*((1-t)^(m-k))
+  choose(m-1,k-1)*(((t-a)^(k-1))*((b-t)^(m-k)))/((b-a)^(m-1))
 }
   
-bernstein.matrix <- function(m,time){
-  sapply(X = time,FUN=function(x)bernstein.basis(m,x))
+bernstein.matrix <- function(m,time,a,b){
+  sapply(X = time,FUN=function(x)bernstein.basis(m,x,a,b))
 }
 
 bernstein.basis.derivative<- function(m,t){
