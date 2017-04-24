@@ -77,14 +77,17 @@ p<- bcp(t(OD))
 plot(p)
 
 prior<-which(p$posterior.prob>0)
-prior<-c(10:26,35:41)
+prior<-c(10:16,prior[2:length(prior)])
+#prior<-c(26,41)
 #prior<-c(1:26,prior[3:length(prior)])
 P<-length(prior)
 N=16
-M=100
+M=31
 MAXT=max(time)
 X<-bernstein.matrix(M,time,a=time[1],b=time[length(time)])
 D<-bernstein.derivative.operator(M)
+Q<-subdivision.matrix(0.1,M)
+I<-bernstein.integral.operator(M)
 OD<-OD.old[1:N,]
 #OD<-t(scale(t(OD)))
 #MIN=min(log(OD))
@@ -98,7 +101,7 @@ K0=0.01
 #MU=c(0.2,0.06)
 MU=c(0,0,0)
 LAMBDA=1
-SIGMA_A=0.5
+SIGMA_A=0.05
 #timeN <- as.numeric(colnames(OD.old))
 #timeN[1] <- 0
 #timeN<--1*normalize.interval(timeN)
@@ -106,7 +109,7 @@ T <- length(timeN)
 model <- stan_model(file = "BernsteinFitDynamic.stan")
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
-#fit<-stan("BernsteinFitDynamic.stan",chains=6 )
+#fit<-stan("BernsteinFitDynamic.stan",chains=6,iter = 3000)
 fit<-vb(model, output_samples=1000, seed=123)
 #fitrstan::optimizing()
 s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))

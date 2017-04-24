@@ -112,3 +112,72 @@ bernstein.derivative.operator<- function(m){
   
   (m-1)*t(D)%*%L
 }
+
+bernstein.comb.matrix<-function(M){
+  Aj<-vector(mode = "list",length=M)
+  for(i in 0:(M-1)){
+    Ai=c(rep(0,i))
+    for(j in 0: (M-1-i))
+      Ai=c(Ai,((-1)^(M-j))*choose(M-1,i)*choose(M-1-i,j))
+    Aj[[i+1]]=Ai
+  }
+ matrix(unlist(Aj),M,M,byrow = T)
+}
+
+bernstein.lambda.matrix<-function(M){
+  diag(1/1:M)
+}
+
+
+bernstein.integral.operator<-function(M){
+  H<-Hilbert(M)
+  A<-bernstein.comb.matrix(M)
+  Q<-A%*%H%*%t(A)
+  Ainv<-solve(A)
+  cm=0:(M-1)
+  cm<-choose(M-1,cm)
+  cdm<-1:((M-1)+1)
+  cdm<-choose(2*(M-1)+1,(M-1)+cdm)
+  cm1<-cm/cdm
+  Qinv<-solve(Q)
+  cm1<-(Qinv/(2*(M-1)+2))%*%as.matrix(cm1)
+  B<-matrix(nrow = M,ncol=M)
+  for(i in 2:M)
+    B[i-1,]<-Ainv[i,]
+  B[M,]<-as.vector(cm1)
+  lambda<-bernstein.lambda.matrix(M)
+  as.matrix(A%*%lambda%*%B)
+}
+
+subdivision.matrix<-function(cut,M){
+  A<-bernstein.comb.matrix(M)
+  d<-cut^(0:(M-1))
+  S<-diag(d)
+  tmp<-solve(A,S)
+  A%*%S%*%solve(A)
+}
+
+bernstein.derivative.operator2<- function(M){
+  lambda<-rbind(rep(0,M-1),diag(1:(M-1)))
+  A<-bernstein.comb.matrix(M)
+  Ainv<-solve(A)
+  B<-matrix(nrow=M-1,ncol=M)
+  for(i in 1:(M-1)){
+    B[i,]<-Ainv[i,]
+  }
+  A%*%lambda%*%B  
+}
+
+bernstein.product.vector<-function(k,i,M){
+  H<-Hilbert(M);
+  A<-bernstein.comb.matrix(M)
+  Q<-A%*%H%*%t(A)
+  Qinv<-solve(Q)
+  const<-choose(M-1,i)*Qinv/(2*(M-1)+k+1)
+  numerator<-0:(M-1)
+  denominator<-0:(M-1)
+  numerator<-choose(M-1,numerator)
+  denominator<-choose(2*(M-1)+k,i+k+denominator)
+  vector<-numerator/denominator
+  const%*%as.matrix(vector)
+}

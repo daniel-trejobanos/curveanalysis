@@ -6,10 +6,11 @@ data {
    real MAXT;
   matrix<lower=0,upper=1>[M,T] X;
   matrix[M,M] D;
+  matrix[M,M] I;
+  matrix[M,M] Q;
   real timeN[T];
   real time[T];
   matrix[N,T] OD; #optical density data
- #  real MU[3];
   real MIN;
   real MAX;
   real SIGMA_MU;
@@ -28,7 +29,8 @@ transformed data{
     for(j in 1:T)
       #FPOD[i,j] = log(OD[i,j])-log(OD[i,1]);
       #FPOD[i,j] = log(OD[i,j])-MIN;
-      FPOD[i,j] = OD[i,j]-OD[i,1];
+     # FPOD[i,j] = OD[i,j]-min(OD[i,]);
+      FPOD[i,j]= OD[i,j]-OD[i,1];
 }
 parameters {
  #real<lower=0, upper=S> s;
@@ -37,9 +39,9 @@ parameters {
   real<lower=0,upper=1> sigma_o;
   matrix<lower=0,upper=1>[N,3] rate;
  real<lower=0> sigma_mu[3];
- real<lower=0> lambda;
+ real<lower=0> lambda[3];
  real<lower=0> MU[3];
- 
+ real<lower=0> regularize;
 }
 transformed parameters{
     matrix[P,P] lp[N]; 
@@ -60,11 +62,14 @@ transformed parameters{
         lpS_12[n,1]=0;
         lpS_21[n,1]=0;
         lpS_32[n,1]=0;
-        for (t in 1:T){
+        lpS_12[n,2]=0;
+        lpS_21[n,2]=0;
+        lpS_32[n,2]=0;
+        for (t in 2:T){
             
-            lpS_12[n,t+1]=lpS_12[n,t]+normal_lpdf(loss[n,t]|rate[n,1],lambda);
-            lpS_21[n,t+1]=lpS_21[n,t]+normal_lpdf(loss[n,t]|rate[n,2],lambda);
-            lpS_32[n,t+1]=lpS_32[n,t]+normal_lpdf(loss[n,t]|rate[n,3],lambda);
+            lpS_12[n,t+1]=lpS_12[n,t]+normal_lpdf(loss[n,t]|rate[n,1],lambda[1]);
+            lpS_21[n,t+1]=lpS_21[n,t]+normal_lpdf(loss[n,t]|rate[n,2],lambda[2]);
+            lpS_32[n,t+1]=lpS_32[n,t]+normal_lpdf(loss[n,t]|rate[n,3],lambda[3]);
         }
         
         for(s1 in 1:P){
@@ -85,9 +90,9 @@ model {
   sigma_o~ normal(0,0.1);
   sigma_a ~ normal(0,SIGMA_A);
   sigma_mu ~ cauchy(0,SIGMA_MU);
-  
+  regularize ~ cauchy(0,0.01);
  for (n in 1:N){
-      rate[n,1]~ normal(MU[1],sigma_mu[2]);
+      rate[n,1]~ normal(MU[1],sigma_mu[1]);
       rate[n,2]~ normal(MU[2],sigma_mu[2]);
       rate[n,3]~ normal(MU[3],sigma_mu[3]);
       A_coef[,n]  ~ normal(0,sigma_a[n]);
@@ -95,7 +100,7 @@ model {
  }
  
  for(n in 1:N){
-   target+=log_sum_exp(to_vector(lp[n]))+normal_lpdf(FPOD[n,]|A_coef[,n]'*X,sigma_o);
+   target+=log_sum_exp(to_vector(lp[n]))+normal_lpdf(FPOD[n,]|A_coef[,n]'*X,sigma_o)+normal_lpdf(0|A_coef[,N]'*Q,regularize)+normal_lpdf(0|DA_coef[,N]'*Q,regularize);
     #target+=normal_lpdf(FPOD[n,]|A_coef[,n]'*X,sigma_o[n]);
  }
  
