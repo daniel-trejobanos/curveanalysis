@@ -7,7 +7,7 @@ data {
   matrix<lower=0,upper=1>[M,T] X;
   
   matrix[M,M] D;
- # matrix[M,M] I;
+  matrix[M,M] Id;
   matrix[M,M] Q;
   real timeN[T];
   real time[T];
@@ -27,6 +27,8 @@ data {
 transformed data{
   real<lower=0> MI;
   matrix[N,T] FPOD;
+  matrix[M,T] XI;
+   XI=Id*X;
    MI=M;
   for(i in 1:N)
     for(j in 1:T)
@@ -49,10 +51,10 @@ parameters {
 }
 transformed parameters{
     matrix[P,P] lp[N]; 
-    matrix[M,N] DA_coef;
-    #matrix[N,T] loss;
-    DA_coef=((1/MAXT)*A_coef'*D)';
-   # loss = (DA_coef'*X)./(A_coef'*X);
+  #  matrix[M,N] DA_coef;
+    matrix[N,T] loss;
+    #DA_coef=(A_coef'*D)';
+    loss = (A_coef'*X)./(A_coef'*XI);
      
     {
       matrix[N,T+1] lpS_12;
@@ -67,9 +69,9 @@ transformed parameters{
         lpS_32[n,1]=0;
         for (t in 1:T){
             
-            lpS_12[n,t+1]=lpS_12[n,t]+normal_lpdf(DA_coef[,n]'*X[,t]|rate[n,1]*A_coef[,n]'*X[,t],lambda[1]);
-            lpS_21[n,t+1]=lpS_21[n,t]+normal_lpdf(DA_coef[,n]'*X[,t]|rate[n,2]*A_coef[,n]'*X[,t],lambda[2]);
-            lpS_32[n,t+1]=lpS_32[n,t]+normal_lpdf(DA_coef[,n]'*X[,t]|rate[n,3]*A_coef[,n]'*X[,t],lambda[3]);
+            lpS_12[n,t+1]=lpS_12[n,t]+normal_lpdf(loss[,t]|rate[n,1],lambda[1]);
+            lpS_21[n,t+1]=lpS_21[n,t]+normal_lpdf(loss[,t]|rate[n,2],lambda[2]);
+            lpS_32[n,t+1]=lpS_32[n,t]+normal_lpdf(loss[,t]|rate[n,3],lambda[3]);
         }
         
         for(s1 in 1:P){
@@ -99,7 +101,7 @@ model {
  }
  
  for(n in 1:N){
-   target+=log_sum_exp(to_vector(lp[n]))+normal_lpdf(FPOD[n,]|A_coef[,n]'*X,sigma_o) +normal_lpdf(FPOD[n,L:T]|A_coef[,n]'*Q'*Xa,regularize)+normal_lpdf(FPOD[n,1:L]|A_coef[,N]'*Q*Xs,regularize);#+normal_lpdf(0|DA_coef[,N]'*Q,regularize);
+   target+=log_sum_exp(to_vector(lp[n]))+normal_lpdf(FPOD[n,]|A_coef[,n]'*XI,sigma_o)+normal_lpdf(FPOD[n,L:T]|A_coef[,n]'*Q'*Id*Xa,regularize)+normal_lpdf(FPOD[n,1:L]|A_coef[,N]'*Q*Id*Xs,regularize);#+normal_lpdf(0|DA_coef[,N]'*Q,regularize);
     #target+=normal_lpdf(FPOD[n,]|A_coef[,n]'*X,sigma_o[n]);
  }
  
@@ -115,8 +117,8 @@ generated quantities{
       
       for (t in 1:T) {
       
-        OD_pred[n,t] = A_coef[,n]'*X[,t];
-        DOD_pred[n,t] = DA_coef[,n]'*X[,t];
+        OD_pred[n,t] = A_coef[,n]'*XI[,t];
+        DOD_pred[n,t] = A_coef[,n]'*X[,t];
       }
   }
 }
