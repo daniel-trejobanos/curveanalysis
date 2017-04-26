@@ -73,30 +73,36 @@ library(coda)
 library(ggmcmc)
 library(bcp)
 set.seed(123)
-#prior<-matrix(,N,P)
-#P=16;
-#for(i in 1:N){
-#  p<- bcp(OD[i,],time)
-#  prior[i,]<-sort(order(p$posterior.prob,decreasing = T)[1:P])
-#}
+P=16;
+prior<-matrix(,N,P)
 
+for(i in 1:N){
+  p<- bcp(OD[i,],time)
+  temp<-order(p$posterior.prob,decreasing = T)
+  #temp<-temp[temp>17]
+  #temp<-temp[temp>]
+  prior[i,]<-sort(temp[1:P])
+}
+#p<-bcp(t(OD))
+#prior<-which(p$posterior.prob>0.5)
+#prior<-c(17,39)
 #prior<-c(10:16,prior[2:length(prior)])
 #prior<-c(26,41)
 #prior<-c(1:26,prior[3:length(prior)])
 #P<-length(prior)
 N=16
-M=16
+M=100
 MAXT=max(time)
 X<-bernstein.matrix(M,time,a=time[1],b=time[length(time)])
 D<-bernstein.derivative.operator(M)
 subdiv<-0.5
-
-Q<-subdivision.matrix(subdiv,M)
+timeN[1]<-1e-6
+#Q<-subdivision.matrix(subdiv,M)
 L<-which(timeN<=subdiv)
 L<-L[length(L)]
 Xs<-bernstein.matrix(M,time[1:L],a=time[1],b=time[L])
 Xa<-bernstein.matrix(M,time[L:T],a=time[L],b=time[length(time)])
-Id<-bernstein.integral.operator(M)
+#Id<-bernstein.integral.operator(M)
 OD<-OD.old[1:N,]
 #OD<-t(scale(t(OD)))
 #MIN=min(log(OD))
@@ -105,20 +111,21 @@ MIN=0
 MAX=max(OD)+0.1
 #LAMBDA=20
 #SIGMA_MU=0.01
-SIGMA_MU=0.1
+SIGMA_MU=0.01
 K0=0.01
 #MU=c(0.2,0.06)
 MU=c(0,0,0)
-LAMBDA=0.01
-SIGMA_A=0.1
+LAMBDA=0.1
+SIGMA_A=1
 #timeN <- as.numeric(colnames(OD.old))
 #timeN[1] <- 0
 #timeN<--1*normalize.interval(timeN)
 T <- length(timeN)
-model <- stan_model(file = "BernsteinFitDynamicIntegral.stan")
+model <- stan_model(file = "BernsteinFitLOG.stan")
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
-#fit<-stan("BernsteinFitDynamicForm2.stan",chains=6,iter = 3000)
+#fit<-stan("BernsteinFitLOG.stan",chains=6)
+#save(list="fit",file="fit.RData")
 fit<-vb(model, output_samples=1000, seed=123)
 #fitrstan::optimizing()
 s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
@@ -149,14 +156,14 @@ tmp<-rstan::extract(fit,"OD_pred")
 ODp<-tmp$OD_pred
 #plot(colMeans(ODp))
 ODp<-t(matrix(colMeans(ODp),N,T))
-matplot(ODp,type="l",ylim=c(0,0.9))
+matplot(ODp,type="l")
 #matplot(t(OD),type="l",ylim=c(0,0.9))
 
 tmp<-rstan::extract(fit,"DOD_pred")
 DODp<-tmp$DOD_pred
 #plot(colMeans(DODp)/colMeans(ODp))
 DODp<-t(matrix(colMeans(DODp),N,T))
-matplot(DODp,type="l")
+matplot((1/MAXT)*DODp,type="l")
 matplot(DODp/ODp,type="l",main="loss posterior")
 tmp<-rstan::extract(fit,"loss")
 lossp<-tmp$loss
