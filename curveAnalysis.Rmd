@@ -74,14 +74,14 @@ library(ggmcmc)
 library(bcp)
 set.seed(123)
 P=16;
-prior<-matrix(,N,P)
+#prior<-matrix(,N,P)
 
 for(i in 1:N){
-  p<- bcp(OD[i,],time)
+  #p<- bcp(OD[i,],time)
   temp<-order(p$posterior.prob,decreasing = T)
-  #temp<-temp[temp>17]
-  #temp<-temp[temp>]
-  prior[i,]<-sort(temp[1:P])
+  temp<-temp[temp>17]
+
+# prior[i,]<-sort(temp[1:P])
 }
 #p<-bcp(t(OD))
 #prior<-which(p$posterior.prob>0.5)
@@ -91,15 +91,16 @@ for(i in 1:N){
 #prior<-c(1:26,prior[3:length(prior)])
 #P<-length(prior)
 N=16
-M=100
+M=10
 MAXT=max(time)
 X<-bernstein.matrix(M,time,a=time[1],b=time[length(time)])
 D<-bernstein.derivative.operator(M)
 subdiv<-0.5
 timeN[1]<-1e-6
-#Q<-subdivision.matrix(subdiv,M)
+
 L<-which(timeN<=subdiv)
 L<-L[length(L)]
+Q<-subdivision.matrix(timeN[L],M)
 Xs<-bernstein.matrix(M,time[1:L],a=time[1],b=time[L])
 Xa<-bernstein.matrix(M,time[L:T],a=time[L],b=time[length(time)])
 #Id<-bernstein.integral.operator(M)
@@ -111,20 +112,21 @@ MIN=0
 MAX=max(OD)+0.1
 #LAMBDA=20
 #SIGMA_MU=0.01
-SIGMA_MU=0.01
+SIGMA_MU=1
 K0=0.01
 #MU=c(0.2,0.06)
 MU=c(0,0,0)
-LAMBDA=0.1
+LAMBDA=1
 SIGMA_A=1
 #timeN <- as.numeric(colnames(OD.old))
 #timeN[1] <- 0
 #timeN<--1*normalize.interval(timeN)
 T <- length(timeN)
-model <- stan_model(file = "BernsteinFitLOG.stan")
+#model <- stan_model(file = "BernsteinFitLOG.stan")
+model <- stan_model(file = "BernsteinFitDynamic.stan")
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
-#fit<-stan("BernsteinFitLOG.stan",chains=6)
+#fit<-stan("BernsteinFitDynamic.stan",chains=2)
 #save(list="fit",file="fit.RData")
 fit<-vb(model, output_samples=1000, seed=123)
 #fitrstan::optimizing()
