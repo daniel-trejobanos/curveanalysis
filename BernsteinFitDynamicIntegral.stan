@@ -28,7 +28,7 @@ transformed data{
   real<lower=0> MI;
   matrix[N,T] FPOD;
   matrix[M,T] XI;
-   XI=Id*X;
+  # XI=Id*X;
    MI=M;
   for(i in 1:N)
     for(j in 1:T)
@@ -78,7 +78,7 @@ transformed parameters{
           log_pROW[n,s1] =  lpS_21[n,T + 1] + lpS_12[n,prior[n,s1]] - lpS_21[n,prior[n,s1]];
         }
         for(s1 in 1:P)
-         for(s2 in 2:P){
+         for(s2 in (s1+1):P){
           lp[n,s1,s2]=  lp[n,s1,s2] + lpS_32[n,T+1] + log_pROW[n,s1]  - lpS_32[n,prior[n,s2]];
         }
       }
@@ -101,7 +101,7 @@ model {
  }
  
  for(n in 1:N){
-   target+=log_sum_exp(to_vector(lp[n]))+normal_lpdf(FPOD[n,]|A_coef[,n]'*XI,sigma_o)+normal_lpdf(FPOD[n,L:T]|A_coef[,n]'*Q'*Id*Xa,regularize)+normal_lpdf(FPOD[n,1:L]|A_coef[,N]'*Q*Id*Xs,regularize);#+normal_lpdf(0|DA_coef[,N]'*Q,regularize);
+   target+=log_sum_exp(to_vector(lp[n]))+normal_lpdf(FPOD[n,L:T]|A_coef[,n]'*Q'*Id*Xa,sigma_o)+normal_lpdf(FPOD[n,1:L]|A_coef[,n]'*Q*Id*Xs,sigma_o);#+normal_lpdf(0|DA_coef[,N]'*Q,regularize);
     #target+=normal_lpdf(FPOD[n,]|A_coef[,n]'*X,sigma_o[n]);
  }
  

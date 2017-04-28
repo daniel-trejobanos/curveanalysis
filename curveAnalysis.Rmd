@@ -74,14 +74,16 @@ library(ggmcmc)
 library(bcp)
 set.seed(123)
 P=16;
+N=16;
 #prior<-matrix(,N,P)
 
-for(i in 1:N){
-  #p<- bcp(OD[i,],time)
-  temp<-order(p$posterior.prob,decreasing = T)
-  temp<-temp[temp>17]
 
-# prior[i,]<-sort(temp[1:P])
+for(i in 1:N){
+  p<- bcp(OD[i,],time)
+  temp<-order(p$posterior.prob,decreasing = T)
+  #temp<-temp[temp>18]
+
+ prior[i,]<-sort(temp[1:P])
 }
 #p<-bcp(t(OD))
 #prior<-which(p$posterior.prob>0.5)
@@ -90,8 +92,7 @@ for(i in 1:N){
 #prior<-c(26,41)
 #prior<-c(1:26,prior[3:length(prior)])
 #P<-length(prior)
-N=16
-M=10
+M=100
 MAXT=max(time)
 X<-bernstein.matrix(M,time,a=time[1],b=time[length(time)])
 D<-bernstein.derivative.operator(M)
@@ -100,7 +101,7 @@ timeN[1]<-1e-6
 
 L<-which(timeN<=subdiv)
 L<-L[length(L)]
-Q<-subdivision.matrix(timeN[L],M)
+#Q<-subdivision.matrix(timeN[L],M)
 Xs<-bernstein.matrix(M,time[1:L],a=time[1],b=time[L])
 Xa<-bernstein.matrix(M,time[L:T],a=time[L],b=time[length(time)])
 #Id<-bernstein.integral.operator(M)
@@ -112,12 +113,12 @@ MIN=0
 MAX=max(OD)+0.1
 #LAMBDA=20
 #SIGMA_MU=0.01
-SIGMA_MU=1
+SIGMA_MU=0.01
 K0=0.01
 #MU=c(0.2,0.06)
 MU=c(0,0,0)
 LAMBDA=1
-SIGMA_A=1
+SIGMA_A=0.1
 #timeN <- as.numeric(colnames(OD.old))
 #timeN[1] <- 0
 #timeN<--1*normalize.interval(timeN)
@@ -178,7 +179,7 @@ abline(h=0)
 #plot(diff(OD[2,])/diff(time))
 
 #matplot(t(log(OD))-MIN,type="l")
-
+plot(bcp(lossp))
 
 #rate<-(matrix(colMeans(rate),N,2))
 #boxplot(rate,main="mean rates")
