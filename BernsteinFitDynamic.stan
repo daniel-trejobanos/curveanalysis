@@ -8,7 +8,7 @@ data {
   matrix[M,M] D;
  # matrix[M,M] I;
   #matrix[M,M] Q;
-  real timeN[T];
+  vector[T] timeN;
   real time[T];
   matrix[N,T] OD; #optical density data
   real MIN;
@@ -51,6 +51,7 @@ parameters {
  real<lower=0> lambda[2];
  real<lower=0,upper=0.5> MUG;
  real<lower=0,upper=0.1> MUE;
+ vector<lower=0,upper=MAX>[N] b;
 # cov_matrix[M] SIGMA[N];
 
 # matrix<lower=0>[M,N] beta;
@@ -62,39 +63,26 @@ transformed parameters{
     matrix[M,N] DA_coef;
     matrix[N,T] loss;
     matrix[N,T] curve;
-    
+    matrix[N,T] derivative;
      #matrix[M,N] alpha;
     DA_coef=((1/MAXT)*A_coef'*D)';
-    
-     curve= A_coef'*X;
+     curve=A_coef'*X;
+     derivative=DA_coef'*X;
      loss = (DA_coef'*X)./curve;
+     
      #alpha[1,]=beta[1,];
      #alpha[2:M,]=beta[2:M,]-beta[1:(M-1),];
     {
-      matrix[N,T+1] lpS_12;
-      matrix[N,T+1] lpS_21;
-      matrix[N,T+1] lpS_32;
-      matrix[N,P] log_pROW;
-      real temp;
+      row_vector[T] logCurve;
+      row_vector[T] g1;
+       
       for(n in 1:N){
         lp[n] = rep_matrix(-log(P),P,P);
-        lpS_12[n,1]=0;
-        lpS_21[n,1]=0;
-        lpS_32[n,1]=0;
-        
-        for (t in 1:T){
-            
-            lpS_12[n,t+1]=lpS_12[n,t]+normal_lpdf(curve[n,t]|A_coef[1,n],lambda[1]);
-            lpS_21[n,t+1]=lpS_21[n,t]+normal_lpdf(loss[n,t]|rate[n,1],lambda[1]);
-            lpS_32[n,t+1]=lpS_32[n,t]+normal_lpdf(loss[n,t]|rate[n,2],lambda[2]);
-        }
-        
-        for(s1 in 1:P){
-          log_pROW[n,s1] =  lpS_21[n,T + 1] + lpS_12[n,prior[n,s1]] - lpS_21[n,prior[n,s1]];
-        }
+        logCurve=log(curve[n,])-log(A_coef[1,n]);
         for(s1 in 1:P)
-         for(s2 in (s1+1):P){
-          lp[n,s1,s2]=  lp[n,s1,s2] + lpS_32[n,T+1] + log_pROW[n,s1]  - lpS_32[n,prior[n,s2]];
+         for(s2 in (s1+2):P){
+           g1=(timeN-rep_vector(timeN[prior[n,s2]],T))';
+          lp[n,s1,s2]=  lp[n,s1,s2] + normal_lpdf(curve[n,1:prior[n,s1]]|A_coef[1,n],0.01) + normal_lpdf(logCurve[ prior[n,s1]:prior[n,s2]] |MAXT*rate[n,1]*g1[prior[n,s1]:prior[n,s2]]+b[n],lambda[1])+ normal_lpdf(logCurve[prior[n,s2]:T]|MAXT*rate[n,2]*g1[prior[n,s2]:T]+b[n],lambda[2]);
         }
       }
     }

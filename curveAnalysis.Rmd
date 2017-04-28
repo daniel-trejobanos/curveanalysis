@@ -92,7 +92,7 @@ for(i in 1:N){
 #prior<-c(26,41)
 #prior<-c(1:26,prior[3:length(prior)])
 #P<-length(prior)
-M=100
+M=90
 MAXT=max(time)
 X<-bernstein.matrix(M,time,a=time[1],b=time[length(time)])
 D<-bernstein.derivative.operator(M)
@@ -139,6 +139,7 @@ ggs_caterpillar(S,family = "rate")
 ggs_caterpillar(S,family = "sigma")
 ggs_caterpillar(S,family="MU")
 ggs_caterpillar(S,family="lambda")
+ggs_caterpillar(S,family="b")
 #gs_caterpillar(S,family="intercept")
 #ggs_geweke(S)
 #ggs_caterpillar(S,family = "DA_coef")
