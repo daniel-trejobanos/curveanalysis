@@ -6,7 +6,7 @@ data {
    real MAXT;
   matrix<lower=0,upper=1>[M,T] X;
   matrix[M,M] D;
- # matrix[M,M] I;
+  #matrix[M,M] Id;
   #matrix[M,M] Q;
   vector[T] timeN;
   real time[T];
@@ -17,7 +17,7 @@ data {
   real SIGMA_A;
    real<lower=0> LAMBDA;
     int P;
-   int prior[N,P];
+   int prior[P];
    int L;
    matrix[M,L] Xs;
    matrix[M,T-L+1] Xa;
@@ -43,15 +43,15 @@ transformed data{
 }
 parameters {
  #real<lower=0, upper=S> s;
-  matrix<lower=0, upper=MAX>[M,N] A_coef;
+  matrix<lower=0,upper=MAX>[M,N] A_coef;
   real<lower=0> sigma_a[N];
   real<lower=0,upper=1> sigma_o[2];
-  matrix<lower=0,upper=1>[N,2] rate;
- real<lower=0> sigma_mu[2];
- real<lower=0> lambda[2];
- real<lower=0,upper=0.5> MUG;
- real<lower=0,upper=0.1> MUE;
- vector<lower=0,upper=MAX>[N] b;
+  vector<lower=0,upper=1>[3] rate;
+ real<lower=0> sigma_mu[3];
+ real<lower=0> lambda[3];
+ real<lower=0> MUG;
+ real<lower=0> MUE;
+ real<lower=0> MUL;
 # cov_matrix[M] SIGMA[N];
 
 # matrix<lower=0>[M,N] beta;
@@ -60,58 +60,73 @@ parameters {
 }
 transformed parameters{
     matrix[P,P] lp[N]; 
-    matrix[M,N] DA_coef;
     matrix[N,T] loss;
     matrix[N,T] curve;
     matrix[N,T] derivative;
+        
+    matrix[M,N] DA_coef;
+   # real<lower=0> beta;
      #matrix[M,N] alpha;
+   
     DA_coef=((1/MAXT)*A_coef'*D)';
      curve=A_coef'*X;
      derivative=DA_coef'*X;
-     loss = (DA_coef'*X)./curve;
-     
+     loss = derivative ./curve;
+    # beta= MUG-MUE;
      #alpha[1,]=beta[1,];
      #alpha[2:M,]=beta[2:M,]-beta[1:(M-1),];
     {
       row_vector[T] logCurve;
       row_vector[T] g1;
-       
+      real b;
+      real b0;
       for(n in 1:N){
         lp[n] = rep_matrix(-log(P),P,P);
-        logCurve=log(curve[n,])-log(A_coef[1,n]);
-        for(s1 in 1:P)
-         for(s2 in (s1+2):P){
-           g1=(timeN-rep_vector(timeN[prior[n,s2]],T))';
-          lp[n,s1,s2]=  lp[n,s1,s2] + normal_lpdf(curve[n,1:prior[n,s1]]|A_coef[1,n],0.01) + normal_lpdf(logCurve[ prior[n,s1]:prior[n,s2]] |MAXT*rate[n,1]*g1[prior[n,s1]:prior[n,s2]]+b[n],lambda[1])+ normal_lpdf(logCurve[prior[n,s2]:T]|MAXT*rate[n,2]*g1[prior[n,s2]:T]+b[n],lambda[2]);
+        logCurve=log(curve[n,]/curve[n,1]);
+        for(s1 in 1:4){
+         for(s2 in (s1+1):P){
+           g1=(timeN-rep_vector(timeN[prior[s2]],T))';
+           b0=logCurve[1];
+           b=logCurve[prior[s2]];
+           for(i in 1:T)
+              if(i<prior[s1])
+                lp[n,s1,s2]=  lp[n,s1,s2] + normal_lpdf(logCurve[i]|MAXT*rate[1]*timeN[i]+b0,lambda[1]) ;
+            else{
+               
+              if(i<prior[s2]){
+                lp[n,s1,s2]=  lp[n,s1,s2] +
+          normal_lpdf(logCurve[i] |MAXT*rate[2]*g1[i]+b,lambda[2]);
+              }else{
+                lp[n,s1,s2]=  lp[n,s1,s2] + normal_lpdf(logCurve[i]|MAXT*rate[3]*g1[i]+b,lambda[3]);
+              }
+                
+              }
+               
+            }
+          
         }
       }
     }
+    
 }
 
 model { 
-   #MU~ normal(0.25,0.25);
-  lambda ~  normal(0,1);
-  #sigma_mu ~ cauchy(0,SIGMA_MU);
+  lambda ~  normal(0,LAMBDA);
   sigma_o~ normal(0,0.01);
   sigma_a ~ normal(0,0.1);
-  sigma_mu ~ normal(0,0.1);
-  #regularize ~ normal(0,1);
-   
+  sigma_mu ~ normal(0,SIGMA_MU);
+   rate[1]~ normal(MUL,sigma_mu[1]);
+    rate[2]~ normal(MUG,sigma_mu[2]);
+    rate[3]~ normal(MUE,sigma_mu[3]);
  for (n in 1:N){
-      #loss[n,1:3] ~ normal(0,0.1);
-      #SIGMA[n] ~ inv_wishart(M+2,0.1*Identity);
-     
-      rate[n,1]~ normal(MUG,sigma_mu[1]);
-      rate[n,2]~ normal(MUE,sigma_mu[2]);
-    #  alpha[,n] ~ normal(0.1,0.05);
-      #A_coef[,n] ~ multi_normal(beta[,n],SIGMA[n]);
-      A_coef[1,n] ~normal(0,0.1);
+      
+    
+      A_coef[1,n] ~normal(0.07,0.01);
       A_coef[2:M,n]  ~ normal(0,sigma_a[n]);
  }
  
  for(n in 1:N){
-   target+=log_sum_exp(to_vector(lp[n]))+normal_lpdf(FPOD[n,1:L]|A_coef[,n]'*X[,1:L],sigma_o[1])+normal_lpdf(FPOD[n,(L+1):T]|A_coef[,n]'*X[,(L+1):T],sigma_o[2]);#+normal_lpdf(FPOD[n,1:L]|A_coef[,n]'*Q*Xs,sigma_o);#+normal_lpdf(0|DA_coef[,N]'*Q,regularize);
-    #target+=normal_lpdf(FPOD[n,]|A_coef[,n]'*X,sigma_o[n]);
+   target+=log_sum_exp(to_vector(lp[n]))+normal_lpdf(FPOD[n,1:L]|A_coef[,n]'*X[,1:L],sigma_o[1])+normal_lpdf(FPOD[n,(L+1):T]|A_coef[,n]'*X[,(L+1):T],sigma_o[2]);
  }
  
 }
@@ -121,7 +136,7 @@ generated quantities{
   
      matrix[N,T] OD_pred;
      matrix[N,T] DOD_pred;
-
+   
     for (n in 1:N){
       
       for (t in 1:T) {

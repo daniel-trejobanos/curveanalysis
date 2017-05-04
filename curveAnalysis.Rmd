@@ -76,15 +76,19 @@ set.seed(123)
 P=16;
 N=16;
 #prior<-matrix(,N,P)
+p<- bcp(t(OD))
+prior<-which(p$posterior.prob>0.8)
+prior<-prior[1:10]
+#prior<-c(20,39)
+P<-length(prior)
 
-
-for(i in 1:N){
-  p<- bcp(OD[i,],time)
-  temp<-order(p$posterior.prob,decreasing = T)
+#for(i in 1:N){
+#  p<- bcp(OD[i,],time)
+#  temp<-order(p$posterior.prob,decreasing = T)
   #temp<-temp[temp>18]
 
- prior[i,]<-sort(temp[1:P])
-}
+# prior[i,]<-sort(temp[1:P])
+#}
 #p<-bcp(t(OD))
 #prior<-which(p$posterior.prob>0.5)
 #prior<-c(17,39)
@@ -92,12 +96,12 @@ for(i in 1:N){
 #prior<-c(26,41)
 #prior<-c(1:26,prior[3:length(prior)])
 #P<-length(prior)
-M=90
+M=26
 MAXT=max(time)
 X<-bernstein.matrix(M,time,a=time[1],b=time[length(time)])
 D<-bernstein.derivative.operator(M)
 subdiv<-0.5
-timeN[1]<-1e-6
+#timeN[1]<-1e-6
 
 L<-which(timeN<=subdiv)
 L<-L[length(L)]
@@ -124,12 +128,14 @@ SIGMA_A=0.1
 #timeN<--1*normalize.interval(timeN)
 T <- length(timeN)
 #model <- stan_model(file = "BernsteinFitLOG.stan")
-model <- stan_model(file = "BernsteinFitDynamic.stan")
+model <- stan_model(file = "CurveAnalysis.stan")
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
-#fit<-stan("BernsteinFitDynamic.stan",chains=2)
+fit<-vb(model)
+
+#fit<-stan("BernsteinFitDynamic.stan",chains=2, seed=123)
 #save(list="fit",file="fit.RData")
-fit<-vb(model, output_samples=1000, seed=123)
+#fit<-stan("CurveAnalysis.stan",chains = 2)
 #fitrstan::optimizing()
 s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
 
@@ -139,11 +145,10 @@ ggs_caterpillar(S,family = "rate")
 ggs_caterpillar(S,family = "sigma")
 ggs_caterpillar(S,family="MU")
 ggs_caterpillar(S,family="lambda")
-ggs_caterpillar(S,family="b")
 #gs_caterpillar(S,family="intercept")
 #ggs_geweke(S)
-#ggs_caterpillar(S,family = "DA_coef")
-#ggs_caterpillar(S,family = "^A_coef")
+ggs_caterpillar(S,family = "DA_coef")
+ggs_caterpillar(S,family = "^A_coef")
 #ggs_caterpillar(S,family = "lp")
 #ggs_caterpillar(S,family="intercept")
 
@@ -158,22 +163,37 @@ ggs_caterpillar(S,family="b")
 
 tmp<-rstan::extract(fit,"OD_pred")
 ODp<-tmp$OD_pred
-#plot(colMeans(ODp))
-ODp<-t(matrix(colMeans(ODp),N,T))
-matplot(ODp,type="l")
+plot(colMeans(ODp))
+#ODp<-t(matrix(colMeans(ODp),N,T))
+#matplot(ODp,type="l")
 #matplot(t(OD),type="l",ylim=c(0,0.9))
 
 tmp<-rstan::extract(fit,"DOD_pred")
 DODp<-tmp$DOD_pred
+plot(colMeans(DODp))
 #plot(colMeans(DODp)/colMeans(ODp))
-DODp<-t(matrix(colMeans(DODp),N,T))
-matplot((1/MAXT)*DODp,type="l")
-matplot(DODp/ODp,type="l",main="loss posterior")
+#DODp<-t(matrix(colMeans(DODp),N,T))
+#matplot((1/MAXT)*DODp,type="l")
+#matplot(DODp/ODp,type="l",main="loss posterior")
+
 tmp<-rstan::extract(fit,"loss")
 lossp<-tmp$loss
-lossp<-t(matrix(colMeans(lossp),N,T))
-matplot(lossp,type="l",title="loss")
+plot(colMeans(lossp))
+#lossp<-t(matrix(colMeans(lossp),N,T))
+#matplot(lossp,type="l",title="loss")
 abline(h=0)
+
+tmp<-rstan::extract(fit,"curve")
+curvep<-tmp$curve
+plot(colMeans(curvep))
+#lossp<-t(matrix(colMeans(log(curvep)),N,T))
+#matplot(lossp,type="l",title="loss")
+abline(h=0)
+
+tmp<-rstan::extract(fit,"lp")
+lpp<-tmp$lp
+lpp<- matrix(colMeans(lpp),P,P)
+heatmap(lpp,Rowv = NA,Colv=NA)
 #lines(diff(ODp[,2]/diff(timeN)))
 
 #plot(diff(ODp[,2]/(65*diff(timeN))))
@@ -181,7 +201,12 @@ abline(h=0)
 
 #matplot(t(log(OD))-MIN,type="l")
 plot(bcp(lossp))
-
+tmp<-rstan::extract(fit,"logCurve")
+logcurvep<-tmp$logCurve
+plot(colMeans(logcurvep))
+#lossp<-t(matrix(colMeans(curvep),N,T))
+#matplot(lossp,type="l",title="loss")
+abline(h=0)
 #rate<-(matrix(colMeans(rate),N,2))
 #boxplot(rate,main="mean rates")
 #plot(colMeans(rate[,1,1]))

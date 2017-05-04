@@ -54,32 +54,18 @@ transformed parameters{
   #  matrix[M,N] DA_coef;
     matrix[N,T] loss;
     #DA_coef=(A_coef'*D)';
-    loss = (A_coef'*X)./(A_coef'*XI);
+    curve=  A_coef'*XI;
+    loss = (A_coef'*X)./curve;
      
     {
-      matrix[N,T+1] lpS_12;
-      matrix[N,T+1] lpS_21;
-      matrix[N,T+1] lpS_32;
-      matrix[N,P] log_pROW;
-      real temp;
-      for(n in 1:N){
+            for(n in 1:N){
         lp[n] = rep_matrix(-log(P),P,P);
-        lpS_12[n,1]=0;
-        lpS_21[n,1]=0;
-        lpS_32[n,1]=0;
-        for (t in 1:T){
-            
-            lpS_12[n,t+1]=lpS_12[n,t]+normal_lpdf(loss[,t]|rate[n,1],lambda[1]);
-            lpS_21[n,t+1]=lpS_21[n,t]+normal_lpdf(loss[,t]|rate[n,2],lambda[2]);
-            lpS_32[n,t+1]=lpS_32[n,t]+normal_lpdf(loss[,t]|rate[n,3],lambda[3]);
-        }
         
-        for(s1 in 1:P){
-          log_pROW[n,s1] =  lpS_21[n,T + 1] + lpS_12[n,prior[n,s1]] - lpS_21[n,prior[n,s1]];
-        }
         for(s1 in 1:P)
-         for(s2 in (s1+1):P){
-          lp[n,s1,s2]=  lp[n,s1,s2] + lpS_32[n,T+1] + log_pROW[n,s1]  - lpS_32[n,prior[n,s2]];
+         for(s2 in (s1+2):P){
+           g1=curve[n,]-curve[n,prior[n,s2]];
+          lp[n,s1,s2]=  lp[n,s1,s2] + normal_lpdf(curve[n,1:prior[n,s1]]|A_coef[1,n],0.01) + normal_lpdf(derivative[n,prior[n,s1]:prior[n,s2]]|rate[n,1]*g1[prior[n,s1]:prior[n,s2]]+b[n],lambda[1]) +
+          normal_lpdf(derivative[n,prior[n,s2]:T]|rate[n,2]*g1[prior[n,s2]:T]+b[n],lambda[2]);
         }
       }
     }
@@ -94,9 +80,9 @@ model {
   sigma_mu ~ cauchy(0,SIGMA_MU);
   regularize ~ normal(0,0.01);
  for (n in 1:N){
-      rate[n,1]~ normal(MU[1],sigma_mu[1]);
-      rate[n,2]~ normal(MU[2],sigma_mu[2]);
-      rate[n,3]~ normal(MU[3],sigma_mu[3]);
+      #rate[n,1]~ normal(MU[1],sigma_mu[1]);
+      #rate[n,2]~ normal(MU[2],sigma_mu[2]);
+      #rate[n,3]~ normal(MU[3],sigma_mu[3]);
       A_coef[,n]  ~ normal(0,sigma_a[n]);
  }
  
