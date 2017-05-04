@@ -134,8 +134,9 @@ options(mc.cores = parallel::detectCores())
 fit<-vb(model)
 
 #fit<-stan("BernsteinFitDynamic.stan",chains=2, seed=123)
-#save(list="fit",file="fit.RData")
-#fit<-stan("CurveAnalysis.stan",chains = 2)
+
+#fit<-stan("CurveAnalysis.stan",chains = 3)
+save(list="fit",file="fit.RData")
 #fitrstan::optimizing()
 s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
 
@@ -149,6 +150,7 @@ ggs_caterpillar(S,family="lambda")
 #ggs_geweke(S)
 ggs_caterpillar(S,family = "DA_coef")
 ggs_caterpillar(S,family = "^A_coef")
+ggs_histogram(S,family = "tau")
 #ggs_caterpillar(S,family = "lp")
 #ggs_caterpillar(S,family="intercept")
 
