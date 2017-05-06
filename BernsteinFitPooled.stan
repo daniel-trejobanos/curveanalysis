@@ -16,7 +16,7 @@ data {
    real<lower=0> LAMBDA;
     int P;
    int prior[P];
-  
+  int L;
    #real S;
 }
 transformed data{
@@ -30,87 +30,90 @@ transformed data{
       FPOD[i,j] = OD[i,j];
 }
 parameters {
- #real<lower=0, upper=S> s;
   vector<lower=0,upper=MAX-MIN>[M] A_coef;
   real<lower=0> sigma_a;
-  real<lower=0,upper=1> sigma_o;
-#  real intercept[N];
-  vector<lower=0>[3] rate;
+  real<lower=0,upper=1> sigma_o[2];
+  real<lower=0> MUL;
+  real<lower=0> MUG;
+  real<lower=0> MUE;
  real<lower=0> sigma_mu;
- real<lower=0> lambda;
- # matrix<lower=0,upper=MAX>[M,N] jump;
-#  real<lower=0,upper=MAX> k_0;
+ vector<lower=0>[3] lambda;
 }
 transformed parameters{
-    matrix[P,P] lp[N]; 
+    matrix[P,P] lp; 
     vector[M] DA_coef;
-    vector[T] loss;
-   # matrix<lower=0>[M,N] A_coef;
-    for(n in 1:N){
-    #  A_coef[,n] = cumulative_sum(s*jump[,n]);
-      lp[n] = rep_matrix(-log(P),P,P);
-    }
+    row_vector[T] loss;
+    row_vector[T] curve;
+    row_vector[T] derivative;
+    row_vector[T] logCurve;
+    
+    lp = rep_matrix(-log(P),P,P);
+    
     DA_coef=(1/MAXT)*(A_coef'*D)';
-    loss = ((DA_coef'*X)./(A_coef'*X))';
-   
-    for (s1 in 1:P) 
-      for (s2 in 1:P) 
-      for (t in 1:T){
-        if(t<prior[s1]){
-          lp[s1,s2] = lp[s1,s2] + normal_lpdf(loss[t]|rate[1],lambda);
-          #exponential_lpdf((DA_coef[t-1,n]-rate[n,1])^2|LAMBDA);
-        }else{
-          if(t<prior[s2]){
-            lp[s1,s2] = lp[s1,s2] + normal_lpdf(loss[t]|rate[2],lambda);
-            #exponential_lpdf((DA_coef[t-1,n]-rate[n,2])^2|LAMBDA);
-          }else{
-            lp[s1,s2] = lp[s1,s2] + normal_lpdf(loss[t]|rate[3],lambda);
-            #exponential_lpdf((DA_coef[t-1,n]-rate[n,3])^2|LAMBDA);
-          }
+    curve=A_coef'*X;
+    derivative=DA_coef'*X;
+    loss = derivative ./ curve;
+    logCurve=log(curve ./ curve[1]);
+   {
+      vector[T+1] lpS_12;
+      vector[T+1] lpS_21;
+      vector[T+1] lpS_32;
+      
+      lpS_12[1]=0;
+      lpS_21[1]=0;
+      lpS_32[1]=0;
+        for (t in 1:T){
+            
+            lpS_12[t+1]=lpS_12[t]+normal_lpdf(loss[t]|MUL,lambda[1]);
+            lpS_21[t+1]=lpS_21[t]+normal_lpdf(loss[t]|MUG,lambda[2]);
+            lpS_32[t+1]=lpS_32[t]+normal_lpdf(loss[t]|MUE,lambda[3]);
         }
-      } 
+      
+        for(s1 in 1:P)
+         for(s2 in (s1+1):P){
+          lp[s1,s2]= lp[s1,s2] + lpS_32[T+1] + lpS_12[prior[s1]] +(lpS_21[prior[s2]]-lpS_21[prior[s1]])  - lpS_32[prior[s2]];
+        }
+      }
+    
     
 }
 
 model { 
-  lambda ~  normal(0,LAMBDA);
-  sigma_mu ~ normal(0,SIGMA_MU);
+  lambda ~  cauchy(0,LAMBDA);
+  sigma_mu ~ cauchy(0,SIGMA_MU);
   sigma_o~ normal(0,0.1);
   sigma_a ~ normal(0,SIGMA_A);
-  rate[1]~ normal(MU[1],sigma_mu);
-   rate[2]~ normal(MU[2],sigma_mu);
-   rate[3]~ normal(MU[3],sigma_mu);
-   #rate[,1]~ cauchy(0,SIGMA_MU);
-   #rate[,2]~ cauchy(0,SIGMA_MU);
-   #rate[,3]~ cauchy(0,SIGMA_MU);
- 
-    A_coef  ~ normal(0,sigma_a);
- 
+  MUL~ normal(MU[1],sigma_mu);
+  MUG~ normal(MU[2],sigma_mu);
+  MUE~ normal(MU[3],sigma_mu);
+   
+    A_coef[1]~normal(0.07,0.01);
+    A_coef[2:M]  ~ normal(0,sigma_a);
  
  for(n in 1:N){
-   target+=log_sum_exp(to_vector(lp[n]))+normal_lpdf(FPOD[n,]|A_coef'*X,sigma_o);
-    #target+=normal_lpdf(FPOD[n,]|A_coef'*X,sigma_o);
+   FPOD[n,1:L]~normal(A_coef'*X[,1:L],sigma_o[1]);
+   FPOD[n,(L+1):T]~normal(A_coef'*X[,(L+1):T],sigma_o[2]);
  }
+ 
+   target+=log_sum_exp(to_vector(lp));
+ 
  
 }
 
 generated quantities{
    
-  # matrix[N,T] rate1_pred;
-   # matrix[N,T] rate2_pred;
-    # matrix[N,T] rate3_pred;
      vector[T] OD_pred;
      vector[T] DOD_pred;
-     
+     int<lower=1,upper=P*P> tau;
+    simplex[P*P] sp;
+    sp = softmax(to_vector(lp));
+    tau = categorical_rng(sp);
      
    #int<lower=1,upper=M> tau[N];
     #simplex[M] sp;
    
       for (t in 1:T) {
       
-     #    rate1_pred[n,t] = normal_rng(rate[n,1]*timeN[t],sigma_o[n]);
-      #  rate2_pred[n,t] = normal_rng(rate[n,2]*timeN[t],sigma_o[n]);
-      #  rate3_pred[n,t] =normal_rng(rate[n,3]*timeN[t],sigma_o[n]);
         OD_pred[t] = A_coef'*X[,t];
         DOD_pred[t] = DA_coef'*X[,t];
       }
