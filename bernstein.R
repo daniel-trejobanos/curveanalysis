@@ -19,7 +19,7 @@ bernstein.basis.derivative.matrix<- function(m,time){
 
 
 normalize.interval <- function(x,a=x[1],b=x[length(x)]){
-  (x-a)/(a-b)
+  (x-a)/(b-a)
 }
 
 derivative.coefficients <- function(coefficients,order=1){

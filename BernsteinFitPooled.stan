@@ -3,16 +3,18 @@ data {
   int<lower=0> N; #number of series
   int<lower=0> M; #number of coefficients
   int<lower=0> T; #number of timepoints
+  #int<lower=1,upper=N> W #well id
    real MAXT;
   matrix<lower=0,upper=1>[M,T] X;
   matrix[M,M] D;
   real timeN[T];
   matrix[N,T] OD; #optical density data
-   real MU[3];
+   vector[3] MU;
   real MIN;
   real MAX;
   real SIGMA_MU;
   real SIGMA_A;
+  real SIGMA_U;
    real<lower=0> LAMBDA;
     int P;
    int prior[P];
@@ -25,19 +27,18 @@ transformed data{
    MI=M;
   for(i in 1:N)
     for(j in 1:T)
-      #FPOD[i,j] = log(OD[i,j])-log(OD[i,1]);
-      #FPOD[i,j] = log(OD[i,j])-MIN;
       FPOD[i,j] = OD[i,j];
 }
 parameters {
   vector<lower=0,upper=MAX-MIN>[M] A_coef;
+  matrix[M,N] U; #well effects.
   real<lower=0> sigma_a;
   real<lower=0,upper=1> sigma_o[2];
-  real<lower=0> MUL;
-  real<lower=0> MUG;
-  real<lower=0> MUE;
+  
  real<lower=0> sigma_mu;
+ real<lower=0> sigma_u;
  vector<lower=0>[3] lambda;
+  vector[3] V;
 }
 transformed parameters{
     matrix[P,P] lp; 
@@ -46,14 +47,25 @@ transformed parameters{
     row_vector[T] curve;
     row_vector[T] derivative;
     row_vector[T] logCurve;
-    
+    matrix[M,N] A_coef_hat;
+      real MUL;
+  real MUG;
+  real MUE; 
+    #vector<lower=0>[3] mu_strain;
+   
     lp = rep_matrix(-log(P),P,P);
     
+    A_coef_hat= rep_matrix(A_coef,N)+U;
     DA_coef=(1/MAXT)*(A_coef'*D)';
     curve=A_coef'*X;
     derivative=DA_coef'*X;
     loss = derivative ./ curve;
     logCurve=log(curve ./ curve[1]);
+    #mu_strain= MU + V;
+    MUL=MU[1]+V[1];
+    MUG=MU[2]+V[2];
+    MUE=MU[3]+V[3];
+   
    {
       vector[T+1] lpS_12;
       vector[T+1] lpS_21;
@@ -83,16 +95,18 @@ model {
   sigma_mu ~ cauchy(0,SIGMA_MU);
   sigma_o~ normal(0,0.1);
   sigma_a ~ normal(0,SIGMA_A);
-  MUL~ normal(MU[1],sigma_mu);
-  MUG~ normal(MU[2],sigma_mu);
-  MUE~ normal(MU[3],sigma_mu);
-   
+  sigma_u~ cauchy(0,SIGMA_U);
+ # MUL~ normal(MU[1],sigma_mu);
+  #MUG~ normal(MU[2],sigma_mu);
+  #MUE~ normal(MU[3],sigma_mu);
+   V~normal(0,sigma_mu);
     A_coef[1]~normal(0.07,0.01);
     A_coef[2:M]  ~ normal(0,sigma_a);
  
  for(n in 1:N){
-   FPOD[n,1:L]~normal(A_coef'*X[,1:L],sigma_o[1]);
-   FPOD[n,(L+1):T]~normal(A_coef'*X[,(L+1):T],sigma_o[2]);
+   U[,n]~normal(0,sigma_u);
+   FPOD[n,1:L]~normal(A_coef_hat[,n]'*X[,1:L],sigma_o[1]);
+   FPOD[n,(L+1):T]~normal(A_coef_hat[,n]'*X[,(L+1):T],sigma_o[2]);
  }
  
    target+=log_sum_exp(to_vector(lp));
@@ -101,7 +115,7 @@ model {
 }
 
 generated quantities{
-   
+
      vector[T] OD_pred;
      vector[T] DOD_pred;
      int<lower=1,upper=P*P> tau;
@@ -111,7 +125,6 @@ generated quantities{
      
    #int<lower=1,upper=M> tau[N];
     #simplex[M] sp;
-   
       for (t in 1:T) {
       
         OD_pred[t] = A_coef'*X[,t];
