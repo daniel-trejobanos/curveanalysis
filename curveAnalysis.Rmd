@@ -372,10 +372,10 @@ ggs_caterpillar(S,family = "theta")
 
 ```{r}
 library(readr)
-SV <- read_csv("~/repo/CurveAnalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYPL230W_Plate_24429.csv")
-SV2 <- read_csv("~/repo/CurveAnalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYPL230W_Plate_24426.csv")
-SV3 <- read_csv("~/repo/CurveAnalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYPL230W_Plate_24430.csv")
-SV4 <- read_csv("~/repo/CurveAnalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYPL230W_Plate_24428.csv")
+SV <- read_csv("~/repo/curveanalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYMR280C_Plate_24429.csv")
+SV2 <- read_csv("~/repo/curveanalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYMR280C_Plate_24426.csv")
+SV3 <- read_csv("~/repo/curveanalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYMR280C_Plate_24430.csv")
+SV4 <- read_csv("~/repo/curveanalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYMR280C_Plate_24428.csv")
 current.data<-SV
 current.data[grep("X",names(current.data))]<-NULL
 current.data
@@ -407,7 +407,7 @@ timeN=normalize.interval(time)
 #prior<-matrix(,N,P)
 p<- bcp(t(OD))
 prior<-which(p$posterior.prob>0.2)
-prior<-prior
+prior<-c(1,prior)
 #prior<-c(20,39)
 P<-length(prior)
 
@@ -462,11 +462,12 @@ SIGMA_U=0.01
 model <- stan_model(file = "HierarchicalEffectModel.stan")
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
-fit<-vb(model)
+#fit<-vb(model)
 
 #fit<-stan("BernsteinFitDynamic.stan",chains=2, seed=123)
-#save(list="fit",file="fit.RData")
-#fit<-stan("HierarchicalEffectModel.stan",chains = 1)
+fit<-stan("HierarchicalEffectModel.stan",iter=4000,chains = 4)
+save(list="fit",file="fit.RData")
+
 #fitrstan::optimizing()
 s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
 
@@ -496,25 +497,27 @@ ggs_histogram(S,family="tau")
 tmp<-rstan::extract(fit,"OD_pred")
 ODp<-tmp$OD_pred
 #plot(colMeans(ODp))
-ODp<-t(matrix(colMeans(ODp),K,T))
-matplot(ODp,type="l")
+#ODp<-t(matrix(colMeans(ODp),K,T))
+plot(colMeans(ODp),type="l")
 
 tmp<-rstan::extract(fit,"DOD_pred")
 DODp<-tmp$DOD_pred
-DODp<-t(matrix(colMeans(DODp),K,T))
-matplot(DODp,type="l")
+
+plot(colMeans(DODp),type="l")
 
 tmp<-rstan::extract(fit,"loss")
 lossp<-tmp$loss
 plot(colMeans(lossp))
-lossp<-t(matrix(colMeans(lossp),K,T))
-matplot(lossp,type="l",title="loss")
+#lossp<-t(matrix(colMeans(lossp),K,T))
+#plot(lossp,type="l",title="loss")
 abline(h=0)
 
 tmp<-rstan::extract(fit,"curve")
 curvep<-tmp$curve
-curvep<-t(matrix(colMeans((curvep)),K,T))
-matplot(curvep,type="l",title="loss")
+plot(colMeans(curvep))
+lines(t(colMeans(OD)))
+#curvep<-t(matrix(colMeans((curvep)),K,T))
+#matplot(curvep,type="l",title="loss")
 abline(h=0)
 
 #tmp<-rstan::extract(fit,"lp")
