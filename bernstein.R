@@ -10,7 +10,7 @@ bernstein.matrix <- function(m,time,a,b){
 }
 
 bernstein.basis.derivative<- function(m,t){
-  (m-1)*BernsteinBasis(m-1,t)
+  (m-1)*bernstein.basis(m-1,t)
 }
 
 bernstein.basis.derivative.matrix<- function(m,time){

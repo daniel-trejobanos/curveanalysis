@@ -65,16 +65,12 @@ transformed parameters{
     matrix[N,T] derivative;
         
     matrix[M,N] DA_coef;
-   # real<lower=0> beta;
-     #matrix[M,N] alpha;
-   
+
     DA_coef=((1/MAXT)*A_coef'*D)';
      curve=A_coef'*X;
      derivative=DA_coef'*X;
      loss = derivative ./curve;
-    # beta= MUG-MUE;
-     #alpha[1,]=beta[1,];
-     #alpha[2:M,]=beta[2:M,]-beta[1:(M-1),];
+
     {
       row_vector[T] logCurve;
       row_vector[T] g1;

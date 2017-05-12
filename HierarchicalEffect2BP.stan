@@ -113,20 +113,45 @@ model {
 }
 
 generated quantities{
-
+     int s1;
+     int Is2;
+     int counter;
+     real s2;
+    
+     real tauR;
+     real PR;
      vector[T] OD_pred;
      vector[T] DOD_pred;
+     vector[T] piece_pred;
+     
      int<lower=1,upper=P*P> tau;
     simplex[P*P] sp;
     sp = softmax(to_vector(lp));
     tau = categorical_rng(sp);
-     
-   #int<lower=1,upper=M> tau[N];
-    #simplex[M] sp;
+    tauR=tau;
+    PR=P;
+     s1=modulus(tau,P);
+     s2=ceil(tauR/PR);
+     for(i in 1:P){
+       if(i<=(s2+0.1))
+          Is2=i;
+     }
       for (t in 1:T) {
-      
-        OD_pred[t] = A_coef'*X[,t];
-        DOD_pred[t] = DA_coef'*X[,t];
+         OD_pred[t] = A_coef'*X[,t];
+         DOD_pred[t] = DA_coef'*X[,t];
+        if(t<prior[s1]){
+          piece_pred[t]= OD_pred[1]*exp(MUL*MAXT*timeN[t]);
+         
+        }
+        else{
+          if(t<prior[Is2]){
+           piece_pred[t]= OD_pred[prior[s1]]*exp(MUG*MAXT*(timeN[t]-timeN[prior[s1]]));
+          
+          }
+          else
+            piece_pred[t]= OD_pred[prior[Is2]]*exp(MUE*MAXT*(timeN[t]-timeN[prior[Is2]]));
+        }
+       
       }
   
 }

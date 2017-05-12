@@ -9,6 +9,7 @@ data {
  # int<lower=1,upper=S> s[N];# strain id
    real MAXT;
   matrix<lower=0,upper=1>[M,T] X;
+   matrix[(M-1),T] XD;
   matrix[M,M] D;
   real timeN[T];
   matrix[N,T] OD; #optical density data
@@ -22,11 +23,11 @@ data {
     int P;
    int prior[P];
   int L;
-   #real S;
+   #real s;
 }
 
 parameters {
-  vector<lower=0,upper=MAX-MIN>[M] A_coef;
+  vector<lower=0>[M] B;
   matrix[M,N] U[PL]; #well effects.
   real<lower=0> sigma_a;
   real<lower=0,upper=1> sigma_o[2,PL];
@@ -34,33 +35,38 @@ parameters {
  real<lower=0> sigma_mu;
  real<lower=0> sigma_u;
  vector<lower=0>[3] lambda;
-  real<lower=-MU[1],upper=0.01> VL;
   real<lower=-MU[2]> VG;
   real<lower=-MU[3]> VE;
+  vector<lower=0,upper=MAX-MIN>[M] A_coef;
+  
+    
 }
 transformed parameters{
-    matrix[P,P] lp; 
-    vector[M] DA_coef;
+    vector[P] lp; 
+    vector[M-1] DA_coef;
     row_vector[T] loss;
     row_vector[T] curve;
     row_vector[T] derivative;
     row_vector[T] logCurve;
     matrix[M,N] H_A_coef[PL];
-      real MUL;
+    
   real MUG;
   real MUE; 
     #vector<lower=0>[3] mu_strain;
-   
-    lp = rep_matrix(-log(P),P,P);
+    #A_coef[1]=B[1];
+    #for(i in 2:M)
+    #  A_coef[i]= A_coef[i-1]+s*B[i];
+    lp = rep_vector(-log(P),P);
     for(i in 1:PL)
       H_A_coef[i]= rep_matrix(A_coef,N)+U[i];
     
-    DA_coef=(1/MAXT)*(A_coef'*D)';
+    DA_coef=(1/MAXT)*(A_coef[2:M]-A_coef[1:(M-1)]);
+    #DA_coef=(1/MAXT)*s*B[2:M];
     curve=A_coef'*X;
-    derivative=DA_coef'*X;
+    derivative=DA_coef'*XD;
     loss = derivative ./ curve;
     logCurve=log(curve ./ curve[1]);
-    MUL=MU[1]+VL;
+   
     MUG=MU[2]+VG;
     MUE=MU[3]+VE;
    
@@ -71,18 +77,15 @@ transformed parameters{
       
       lpS_12[1]=0;
       lpS_21[1]=0;
-      lpS_32[1]=0;
         for (t in 1:T){
             
-            lpS_12[t+1]=lpS_12[t]+normal_lpdf(logCurve[t]|MUL,lambda[1]);
-            lpS_21[t+1]=lpS_21[t]+normal_lpdf(loss[t]|MUG,lambda[2]);
-            lpS_32[t+1]=lpS_32[t]+normal_lpdf(loss[t]|MUE,lambda[3]);
+            lpS_12[t+1]=lpS_12[t]+normal_lpdf(loss[t]|MUG,lambda[1]);
+            lpS_21[t+1]=lpS_21[t]+normal_lpdf(loss[t]|MUE,lambda[2]);
         }
       
         for(s1 in 1:P)
-         for(s2 in (s1+1):P){
-          lp[s1,s2]= lp[s1,s2] + lpS_32[T+1] + lpS_12[prior[s1]] +(lpS_21[prior[s2]]-lpS_21[prior[s1]])  - lpS_32[prior[s2]];
-        }
+        lp[s1]= lp[s1] + lpS_21[T+1] + lpS_12[prior[s1]] - lpS_21[prior[s1]];
+        
       }
     
     
@@ -95,10 +98,11 @@ model {
   sigma_o[2,]~ normal(0,0.1);
   sigma_a ~ normal(0,SIGMA_A);
   sigma_u~ cauchy(0,SIGMA_U);
-   VL~normal(0,sigma_mu);
    VG~normal(0,sigma_mu);
    VE~normal(0,sigma_mu);
+  
     A_coef[1]~cauchy(0,0.05);
+     #B[2:M] ~chi_square(sigma_a/M);
     A_coef[2:M]  ~ normal(0,sigma_a);
  
  for(n in 1:N){
@@ -116,8 +120,8 @@ generated quantities{
 
      vector[T] OD_pred;
      vector[T] DOD_pred;
-     int<lower=1,upper=P*P> tau;
-    simplex[P*P] sp;
+     int<lower=1,upper=P> tau;
+    simplex[P] sp;
     sp = softmax(to_vector(lp));
     tau = categorical_rng(sp);
      
@@ -126,7 +130,7 @@ generated quantities{
       for (t in 1:T) {
       
         OD_pred[t] = A_coef'*X[,t];
-        DOD_pred[t] = DA_coef'*X[,t];
+        DOD_pred[t] = DA_coef'*XD[,t];
       }
   
 }
