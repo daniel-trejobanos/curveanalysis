@@ -397,7 +397,7 @@ current.data[grep("X",names(current.data))]<-NULL
 current.data
 OD<-rbind(OD.old,as.matrix(current.data[,-1]))
 set.seed(123)
-P=16;
+P=23;
 N=nrow(OD);
 PL=3;
 pl=c(rep(1,4),rep(2,4),rep(3,4))
@@ -427,12 +427,12 @@ P<-length(prior)
 #prior<-c(26,41)
 #prior<-c(1:26,prior[3:length(prior)])
 #P<-length(prior)
-M=50
+M=2
 MAXT=max(time)
 X<-bernstein.matrix(M,time,a=time[1],b=time[length(time)])
 XD<-bernstein.basis.derivative.matrix(m = M,time = timeN)
 D<-bernstein.derivative.operator(M)
-subdiv<-0.5
+subdiv<-0.1
 #timeN[1]<-1e-6
 
 L<-which(timeN<=subdiv)
@@ -466,12 +466,13 @@ model1B <- stan_model(file = "HierarchicalEffect1BP.stan")
 model2B <- stan_model(file = "HierarchicalEffect2BP.stan")
 model3B <- stan_model(file = "HierarchicalEffect3BP.stan")
 model4B <- stan_model(file = "HierarchicalEffect4BP.stan")
+model3BPS <- stan_model(file="Hierarchical3BPStrains.stan")
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
-fit<-vb(model1B)
+fit<-vb(model3BPS,iter=30000)
 
-#fit<-sampling(model1BP,warmup=10000,iter=11000,chains = 4)
-#save(list="fit",file="fit.RData")
+#fit<-sampling(model3BPS,warmup=5000,iter=6000,chains = 6, control = list(adapt_delta = 0.85))
+save(list="fit",file="fit.RData")
 
 #fitrstan::optimizing()
 s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
@@ -526,13 +527,13 @@ lines(colMeans(OD))
 abline(h=0)
 
 
-tmp<-rstan::extract(fit,"piece_pred")
-piecep<-tmp$piece_pred
-plot(colMeans(piecep),type="l")
-lines(colMeans(OD))
+#tmp<-rstan::extract(fit,"piece_pred")
+#piecep<-tmp$piece_pred
+#plot(colMeans(piecep),type="l")
+#lines(colMeans(OD))
 #curvep<-t(matrix(colMeans((curvep)),K,T))
 #matplot(curvep,type="l",title="loss")
-abline(h=0)
+#abline(h=0)
 #tmp<-rstan::extract(fit,"lp")
 #lpp<-tmp$lp
 #lpp<- matrix(colMeans(lpp),P,P)
@@ -545,17 +546,265 @@ abline(h=0)
 
 #matplot(t(log(OD))-MIN,type="l")
 #plot(bcp(lossp))
-tmp<-rstan::extract(fit,"logCurve")
-logcurvep<-tmp$logCurve
+#tmp<-rstan::extract(fit,"logCurve")
+#logcurvep<-tmp$logCurve
 #plot(colMeans(logcurvep))
-logCurvep<-t(matrix(colMeans(logcurvep),K,T))
+#logCurvep<-t(matrix(colMeans(logcurvep),K,T))
 #matplot(lossp,type="l",title="loss")
-abline(h=0)
+#abline(h=0)
 #ggs_caterpillar(S,family = "theta")
 ggs_histogram(S,family="V")
 
-ggs_histogram(S,family="s1")
-ggs_histogram(S,family="s2")
+#ggs_histogram(S,family="s1")
+#ggs_histogram(S,family="s2")
+
+waic <- function(stanfit){
+log_lik <- rstan::extract (stanfit, "log_lik")$log_lik
+dim(log_lik) <- if (length(dim(log_lik))==1) c(length(log_lik),1) else
+c(dim(log_lik)[1], prod(dim(log_lik)[2:length(dim(log_lik))]))
+S <- nrow(log_lik)
+n <- ncol(log_lik)
+lpd <- log(colMeans(exp(log_lik)))
+p_waic <- colVars(log_lik)
+elpd_waic <- lpd - p_waic
+waic <- -2*elpd_waic
+loo_weights_raw <- 1/exp(log_lik-max(log_lik))
+loo_weights_normalized <- loo_weights_raw/
+matrix(colMeans(loo_weights_raw),nrow=S,ncol=n,byrow=TRUE)
+loo_weights_regularized <- pmin (loo_weights_normalized, sqrt(S))
+elpd_loo <- log(colMeans(exp(log_lik)*loo_weights_regularized)/
+colMeans(loo_weights_regularized))
+p_loo <- lpd - elpd_loo
+pointwise <- cbind(waic,lpd,p_waic,elpd_waic,p_loo,elpd_loo)
+total <- colSums(pointwise)
+se <- sqrt(n*colVars(pointwise))
+return(list(waic=total["waic"], elpd_waic=total["elpd_waic"],
+p_waic=total["p_waic"], elpd_loo=total["elpd_loo"], p_loo=total["p_loo"],
+pointwise=pointwise, total=total, se=se))
+}
+colVars <- function(a) {n <-
+dim(a)[[1]]; c <- dim(a)[[2]]; return(.colMeans(((a - matrix(.colMeans(a, n, c), nrow = n, ncol =
+c, byrow = TRUE)) ^ 2), n, c) * n / (n - 1))}
+
+print(waic(fit))
 ```
 
+
+```{r}
+library(readr)
+SV <- read_csv("~/repo/curveanalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYPL230W_Plate_24429.csv")
+SV2 <- read_csv("~/repo/curveanalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYPL230W_Plate_24426.csv")
+SV3 <- read_csv("~/repo/curveanalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYPL230W_Plate_24430.csv")
+SV4 <- read_csv("~/repo/curveanalysis/CSVFiles/CSV_for_ConditionsStandardConditions,YeastStrainYPL230W_Plate_24428.csv")
+current.data<-SV
+current.data[grep("X",names(current.data))]<-NULL
+current.data
+OD.old<-as.matrix(current.data[,-1])
+
+current.data<-SV2
+current.data[grep("X",names(current.data))]<-NULL
+current.data
+OD.old<-rbind(OD.old,as.matrix(current.data[,-1]))
+
+#current.data<-SV3
+#current.data[grep("X",names(current.data))]<-NULL
+#current.data
+#OD<-rbind(OD.old,as.matrix(current.data[,-1]))
+
+
+current.data<-SV4
+current.data[grep("X",names(current.data))]<-NULL
+current.data
+OD<-rbind(OD.old,as.matrix(current.data[,-1]))
+set.seed(123)
+P=16;
+N=nrow(OD);
+PL=3;
+pl=c(rep(1,4),rep(2,4),rep(3,4))
+time=as.numeric(colnames(OD))
+T=length(time)
+timeN=normalize.interval(time)
+#prior<-matrix(,N,P)
+p<- bcp(t(OD))
+prior<-which(p$posterior.prob>0.2)
+LAGT<-prior[1]
+#prior<-prior[2:length(prior)]
+#prior<-c(1,prior)
+#prior<-c(20,39)
+P<-length(prior)
+
+#for(i in 1:N){
+#  p<- bcp(OD[i,],time)
+#  temp<-order(p$posterior.prob,decreasing = T)
+  #temp<-temp[temp>18]
+
+# prior[i,]<-sort(temp[1:P])
+#}
+#p<-bcp(t(OD))
+#prior<-which(p$posterior.prob>0.5)
+#prior<-c(17,39)
+#prior<-c(10:16,prior[2:length(prior)])
+#prior<-c(26,41)
+#prior<-c(1:26,prior[3:length(prior)])
+#P<-length(prior)
+M=22
+MAXT=max(time)
+X<-bernstein.matrix(M,time,a=time[1],b=time[length(time)])
+XD<-bernstein.basis.derivative.matrix(m = M,time = timeN)
+D<-bernstein.derivative.operator(M)
+subdiv<-0.1
+#timeN[1]<-1e-6
+
+L<-which(timeN<=subdiv)
+L<-L[length(L)]
+#Q<-subdivision.matrix(timeN[L],M)
+Xs<-bernstein.matrix(M,time[1:L],a=time[1],b=time[L])
+Xa<-bernstein.matrix(M,time[L:T],a=time[L],b=time[length(time)])
+#Id<-bernstein.integral.operator(M)
+#OD<-OD.old[1:N,]
+K=6
+#OD<-t(scale(t(OD)))
+#MIN=min(log(OD))
+#MAX=max(log(OD))
+MIN=0
+MAX=max(OD)+0.1
+#LAMBDA=20
+#SIGMA_MU=0.01
+SIGMA_MU=.01
+K0=0.01
+#MU=c(0.2,0.06)
+MU=c(0,0.2,0.06)
+LAMBDA=1
+SIGMA_A=0.1
+SIGMA_U=0.01
+#timeN <- as.numeric(colnames(OD.old))
+#timeN[1] <- 0
+#timeN<--1*normalize.interval(timeN)
+#T <- length(timeN)
+#model <- stan_model(file = "BernsteinFitLOG.stan")
+model1B <- stan_model(file = "HierarchicalEffect1BP.stan")
+model2B <- stan_model(file = "HierarchicalEffect2BP.stan")
+model3B <- stan_model(file = "HierarchicalEffect3BP.stan")
+model4B <- stan_model(file = "HierarchicalEffect4BP.stan")
+model3BPS <- stan_model(file="Hierarchical3BPStrains.stan")
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+fit<-vb(model3BPS,iter=30000)
+
+#fit<-sampling(model3BPS,warmup=5000,iter=6000,chains = 6, control = list(adapt_delta = 0.85))
+save(list="fit",file="fit.RData")
+
+#fitrstan::optimizing()
+s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
+
+S <- ggs(s)
+
+#ggs_caterpillar(S,family = "rate")
+ggs_caterpillar(S,family = "sigma")
+ggs_caterpillar(S,family="MU")
+ggs_caterpillar(S,family="lambda")
+#gs_caterpillar(S,family="intercept")
+#ggs_geweke(S)
+ggs_caterpillar(S,family = "DA_coef")
+ggs_caterpillar(S,family = "^A_coef")
+ggs_histogram(S,family="tau")
+#ggs_caterpillar(S,family = "lp")
+#ggs_caterpillar(S,family="intercept")
+
+#plotfit(fit)
+#save(list="fit",file="fitADVI.RData")
+#matplot(t(OD),type="l")
+#tmp<-rstan::extract(fit,"rate")
+#rate<-tmp$rate
+
+#t2<-t(matrix(colMeans(rate),N,3))
+#boxplot(t(t2),type="l")
+
+tmp<-rstan::extract(fit,"OD_pred")
+ODp<-tmp$OD_pred
+#plot(colMeans(ODp))
+#ODp<-t(matrix(colMeans(ODp),K,T))
+plot(colMeans(ODp),type="l")
+
+tmp<-rstan::extract(fit,"DOD_pred")
+DODp<-tmp$DOD_pred
+
+plot(colMeans(DODp),type="l")
+
+tmp<-rstan::extract(fit,"loss")
+lossp<-tmp$loss
+plot(colMeans(lossp))
+#lossp<-t(matrix(colMeans(lossp),K,T))
+#plot(lossp,type="l",title="loss")
+abline(h=0)
+
+tmp<-rstan::extract(fit,"curve")
+curvep<-tmp$curve
+plot(colMeans(curvep))
+lines(colMeans(OD))
+#curvep<-t(matrix(colMeans((curvep)),K,T))
+#matplot(curvep,type="l",title="loss")
+abline(h=0)
+
+
+#tmp<-rstan::extract(fit,"piece_pred")
+#piecep<-tmp$piece_pred
+#plot(colMeans(piecep),type="l")
+#lines(colMeans(OD))
+#curvep<-t(matrix(colMeans((curvep)),K,T))
+#matplot(curvep,type="l",title="loss")
+#abline(h=0)
+#tmp<-rstan::extract(fit,"lp")
+#lpp<-tmp$lp
+#lpp<- matrix(colMeans(lpp),P,P)
+#library(gplots)
+#heatmap(lpp,Rowv = NA,Colv=NA)
+#lines(diff(ODp[,2]/diff(timeN)))
+
+#plot(diff(ODp[,2]/(65*diff(timeN))))
+#plot(diff(OD[2,])/diff(time))
+
+#matplot(t(log(OD))-MIN,type="l")
+#plot(bcp(lossp))
+#tmp<-rstan::extract(fit,"logCurve")
+#logcurvep<-tmp$logCurve
+#plot(colMeans(logcurvep))
+#logCurvep<-t(matrix(colMeans(logcurvep),K,T))
+#matplot(lossp,type="l",title="loss")
+#abline(h=0)
+#ggs_caterpillar(S,family = "theta")
+ggs_histogram(S,family="V")
+
+#ggs_histogram(S,family="s1")
+#ggs_histogram(S,family="s2")
+
+waic <- function(stanfit){
+log_lik <- rstan::extract (stanfit, "log_lik")$log_lik
+dim(log_lik) <- if (length(dim(log_lik))==1) c(length(log_lik),1) else
+c(dim(log_lik)[1], prod(dim(log_lik)[2:length(dim(log_lik))]))
+S <- nrow(log_lik)
+n <- ncol(log_lik)
+lpd <- log(colMeans(exp(log_lik)))
+p_waic <- colVars(log_lik)
+elpd_waic <- lpd - p_waic
+waic <- -2*elpd_waic
+loo_weights_raw <- 1/exp(log_lik-max(log_lik))
+loo_weights_normalized <- loo_weights_raw/
+matrix(colMeans(loo_weights_raw),nrow=S,ncol=n,byrow=TRUE)
+loo_weights_regularized <- pmin (loo_weights_normalized, sqrt(S))
+elpd_loo <- log(colMeans(exp(log_lik)*loo_weights_regularized)/
+colMeans(loo_weights_regularized))
+p_loo <- lpd - elpd_loo
+pointwise <- cbind(waic,lpd,p_waic,elpd_waic,p_loo,elpd_loo)
+total <- colSums(pointwise)
+se <- sqrt(n*colVars(pointwise))
+return(list(waic=total["waic"], elpd_waic=total["elpd_waic"],
+p_waic=total["p_waic"], elpd_loo=total["elpd_loo"], p_loo=total["p_loo"],
+pointwise=pointwise, total=total, se=se))
+}
+colVars <- function(a) {n <-
+dim(a)[[1]]; c <- dim(a)[[2]]; return(.colMeans(((a - matrix(.colMeans(a, n, c), nrow = n, ncol =
+c, byrow = TRUE)) ^ 2), n, c) * n / (n - 1))}
+print(waic(fit))
+```
 

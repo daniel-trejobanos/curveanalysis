@@ -36,7 +36,7 @@ parameters {
   matrix<lower=0>[M,PL] A_coef;
   #matrix[M,N] U[PL]; #well effects.
   #real<lower=0> sigma_a;
-  real<lower=0,upper=1> sigma_o[2,PL];
+  matrix<lower=0,upper=1>[2,PL] sigma_o;
   
   #matrix<lower=0>[3,PL] sigma_mu;
   #real<lower=0> sigma_u;
@@ -47,6 +47,7 @@ parameters {
   real<lower=-MU[3],upper=1> VE[PL];
   cov_matrix[M] SIGMA[PL];
   matrix<lower=0,upper=0.2>[M,PL] alpha;
+#  matrix<lower=0,upper=1>[2,PL] sigma_o_raw;
 }
 transformed parameters{
   matrix[P,P] lp[PL]; 
@@ -55,7 +56,7 @@ transformed parameters{
  matrix[PL,T] loss;
   matrix[PL,T] curve;
   matrix[PL,T] derivative;
-  matrix[PL,T] logCurve;
+ # matrix[PL,T] logCurve;
  # matrix[M,N] H_A_coef[PL];
   real MUL[PL];
   real MUG[PL];
@@ -68,7 +69,8 @@ transformed parameters{
    for(i in 1:PL)
    lp[i] = rep_matrix(-log(P),P,P);
    
-   
+   #sigma_o[1,]=0.001*sigma_o_raw[1,];
+   #sigma_o[2,]=0.001*sigma_o_raw[2,];
                     
   for(i in 1:PL){
     betaO[1,i]=alpha[1,i];
@@ -80,7 +82,7 @@ transformed parameters{
                     curve[i,]=A_coef[,i]'*X;
                     derivative[i,]=DA_coef[,i]'*XD;
                     loss[i,] = derivative[i,] ./ curve[i,];
-    logCurve[i,]=log(curve[i,] ./ curve[i,1]);
+ #   logCurve[i,]=log(curve[i,] ./ curve[i,1]);
    # H_A_coef[i]= rep_matrix(A_coef[,i],N)+U[i];
   
  
@@ -133,7 +135,8 @@ model {
   
  
   for(n in 1:N){
-    alpha[,pl[n]]~normal(0,0.001);
+    alpha[1,pl[n]]~normal(0,0.1);
+    alpha[2:M,pl[n]]~normal(0,1);
     
     #A_coef[1,pl[n]]~normal(0,0.1);
     #A_coef[2:M,pl[n]]  ~ normal(0,sigma_a);
@@ -142,9 +145,9 @@ model {
    # VL[pl[n]]~normal(0,sigma_mu[1,pl[n]]);
     #VG[pl[n]]~normal(0,sigma_mu[2,pl[n]]);
     #VE[pl[n]]~normal(0,sigma_mu[3,pl[n]]);
-    VL[pl[n]]~cauchy(0,0.3);
-    VG[pl[n]]~cauchy(0,0.3);
-    VE[pl[n]]~cauchy(0,0.01);
+    VL[pl[n]]~normal(0,0.3);
+    VG[pl[n]]~normal(0,0.1);
+    VE[pl[n]]~normal(0,0.01);
     
    SIGMA[pl[n]] ~inv_wishart(M+2,0.01*identity);
    A_coef[,pl[n]] ~ multi_normal(betaO[,pl[n]],SIGMA[pl[n]]);
@@ -167,12 +170,13 @@ generated quantities{
      #real PR;
      vector[T] OD_pred;
      vector[T] DOD_pred;
+     matrix[N,T] log_lik;
     # vector[T] piece_pred;
      
-    # int<lower=1,upper=P*P> tau;
-    #simplex[P*P] sp;
-    #sp = softmax(to_vector(lp[1]));
-    #tau = categorical_rng(sp);
+     int<lower=1,upper=P*P> tau;
+    simplex[P*P] sp;
+    sp = softmax(to_vector(lp[1]));
+    tau = categorical_rng(sp);
     #tauR=tau;
     #PR=P;
     # s1=modulus(tau,P);
@@ -184,6 +188,13 @@ generated quantities{
       for (t in 1:T) {
          OD_pred[t] = A_coef[,1]'*X[,t];
          DOD_pred[t] = DA_coef[,1]'*XD[,t];
+         for(n in 1:N){
+            if(t<=L)
+              log_lik[n,t]=normal_lpdf(OD[n,t]|A_coef[,pl[n]]'*X[,t],sigma_o[1,pl[n]]);
+            else      
+              log_lik[n,t]=normal_lpdf(OD[n,t]|A_coef[,pl[n]]'*X[,t],sigma_o[2,pl[n]]);  
+         }
+         
      #    if(t<LAGT){
       #     piece_pred[t]= OD_pred[1]*exp(MULAG[1]*MAXT*timeN[t]);
        #  }
@@ -206,3 +217,4 @@ generated quantities{
       }
   
 }
+
